@@ -1,14 +1,22 @@
-import { Bell } from "lucide-react";
-import { Link, useLocation } from "react-router-dom";
+import { Bell, LogOut } from "lucide-react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import universityLogo from "@/assets/hurghada-logo.png";
 import { useQuery } from "@tanstack/react-query";
 import { fetchNotifications } from "@/lib/api";
+import { useAuth } from "@/contexts/AuthContext";
 
 const Header = () => {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { logout } = useAuth();
   const isLoginPage = location.pathname === "/login";
+
+  const handleLogout = () => {
+    logout();
+    navigate("/login");
+  };
 
   const { data: notificationsData } = useQuery({
     queryKey: ['notifications-count'],
@@ -116,6 +124,15 @@ const Header = () => {
               <span className="font-bold">F</span>
             </Button>
           </Link>
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={handleLogout}
+            className="hover:bg-destructive/10 hover:text-destructive transition-all duration-300"
+            title="تسجيل الخروج"
+          >
+            <LogOut className="w-5 h-5" />
+          </Button>
         </div>
       </div>
     </header>
