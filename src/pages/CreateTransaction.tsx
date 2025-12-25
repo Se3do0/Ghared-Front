@@ -1,6 +1,6 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Send, Save, Plus, Trash2, Upload, Loader2 } from "lucide-react";
+import { Send, Save, Plus, Trash2, Upload, Loader2, FileText, Calendar } from "lucide-react";
 import Header from "@/components/layout/Header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,7 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
-import { useFormData } from "@/hooks/useTransactions";
+import { useFormData, useSent } from "@/hooks/useTransactions";
 import { createTransaction } from "@/lib/api";
 
 interface Attachment {
@@ -26,6 +26,7 @@ const CreateTransaction = () => {
   const navigate = useNavigate();
   const { user, isLoading: authLoading } = useAuth();
   const { data: formData, isLoading: formLoading } = useFormData();
+  const { data: historyTransactions, isLoading: historyLoading } = useSent();
   
   const [activeTab, setActiveTab] = useState("main");
   const [subject, setSubject] = useState("");
@@ -36,6 +37,7 @@ const CreateTransaction = () => {
   const [attachmentDescription, setAttachmentDescription] = useState("");
   const [selectedReceivers, setSelectedReceivers] = useState<number[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [parentTransactionId, setParentTransactionId] = useState<number | null>(null);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -78,9 +80,16 @@ const CreateTransaction = () => {
     toast.success("تم حذف المرفق");
   };
 
+  // Reset parent transaction when switching to "new"
+  useEffect(() => {
+    if (transactionNature === "new") {
+      setParentTransactionId(null);
+    }
+  }, [transactionNature]);
+
   const toggleReceiver = (userId: number) => {
     setSelectedReceivers(prev => 
-      prev.includes(userId) 
+      prev.includes(userId)
         ? prev.filter(id => id !== userId)
         : [...prev, userId]
     );
@@ -115,6 +124,11 @@ const CreateTransaction = () => {
       formDataToSend.append("type_id", selectedTypeId.toString());
       // send is_draft as false
       formDataToSend.append("is_draft", "false");
+      
+      // Add parent transaction ID if this is a reply/rectification
+      if (parentTransactionId) {
+        formDataToSend.append("parent_transaction_id", parentTransactionId.toString());
+      }
 
       // Add receivers as comma-separated string (API expects single value)
       formDataToSend.append("receivers", selectedReceivers.join(","));
@@ -202,6 +216,65 @@ const CreateTransaction = () => {
                   </div>
                 </RadioGroup>
               </div>
+
+              {/* History Transaction Selection - shown when "استدراك" is selected */}
+              {transactionNature === "reply" && (
+                <div className="space-y-4 border border-border rounded-xl p-4 bg-muted/30">
+                  <Label className="text-right block font-medium">الرجاء اختيار المعاملة المراد استدراكها</Label>
+                  
+                  {historyLoading ? (
+                    <div className="flex items-center justify-center py-8">
+                      <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                      <span className="mr-2 text-muted-foreground">جاري التحميل...</span>
+                    </div>
+                  ) : historyTransactions && historyTransactions.length > 0 ? (
+                    <div className="space-y-3 max-h-[300px] overflow-y-auto">
+                      {historyTransactions.map((transaction) => (
+                        <label
+                          key={transaction.transaction_id}
+                          htmlFor={`reply-${transaction.transaction_id}`}
+                          className={`block border rounded-lg p-4 cursor-pointer transition-all duration-200 ${
+                            parentTransactionId === transaction.transaction_id
+                              ? 'border-primary bg-primary/5 shadow-sm'
+                              : 'border-border hover:border-primary/50 bg-background'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="badge bg-muted text-muted-foreground text-xs px-2 py-1 rounded-full border border-border">
+                              {transaction.code}
+                            </span>
+                            <div className="flex items-center gap-3">
+                              <div className="text-right">
+                                <div className="flex items-center gap-2 justify-end">
+                                  <span className="font-medium">{transaction.subject}</span>
+                                  <FileText className="w-4 h-4 text-primary" />
+                                </div>
+                                <div className="flex items-center gap-2 justify-end text-sm text-muted-foreground mt-1">
+                                  <span>{transaction.date?.split("T")[0]}</span>
+                                  <Calendar className="w-3 h-3" />
+                                </div>
+                              </div>
+                              <input
+                                type="radio"
+                                name="parent-transaction"
+                                id={`reply-${transaction.transaction_id}`}
+                                value={transaction.transaction_id}
+                                checked={parentTransactionId === transaction.transaction_id}
+                                onChange={() => setParentTransactionId(transaction.transaction_id)}
+                                className="w-4 h-4 text-primary"
+                              />
+                            </div>
+                          </div>
+                        </label>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 text-muted-foreground">
+                      لا توجد معاملات سابقة
+                    </div>
+                  )}
+                </div>
+              )}
 
               <div className="space-y-4">
                 <Label className="text-right block">نوع المعاملة</Label>
