@@ -1,34 +1,14 @@
-import { useState } from "react";
-import { Bell, LogOut } from "lucide-react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Bell } from "lucide-react";
+import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import universityLogo from "@/assets/hurghada-logo.png";
 import { useQuery } from "@tanstack/react-query";
 import { fetchNotifications } from "@/lib/api";
-import { useAuth } from "@/contexts/AuthContext";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 
 const Header = () => {
   const location = useLocation();
-  const navigate = useNavigate();
-  const { logout } = useAuth();
   const isLoginPage = location.pathname === "/login";
-  const [showLogoutDialog, setShowLogoutDialog] = useState(false);
-
-  const handleLogout = () => {
-    logout();
-    navigate("/login");
-  };
 
   const { data: notificationsData } = useQuery({
     queryKey: ['notifications-count'],
@@ -136,34 +116,8 @@ const Header = () => {
               <span className="font-bold">F</span>
             </Button>
           </Link>
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            onClick={() => setShowLogoutDialog(true)}
-            className="hover:bg-destructive/10 hover:text-destructive transition-all duration-300"
-            title="تسجيل الخروج"
-          >
-            <LogOut className="w-5 h-5" />
-          </Button>
         </div>
       </div>
-
-      <AlertDialog open={showLogoutDialog} onOpenChange={setShowLogoutDialog}>
-        <AlertDialogContent dir="rtl">
-          <AlertDialogHeader>
-            <AlertDialogTitle>تأكيد تسجيل الخروج</AlertDialogTitle>
-            <AlertDialogDescription>
-              هل أنت متأكد من أنك تريد تسجيل الخروج من حسابك؟
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter className="flex-row-reverse gap-2">
-            <AlertDialogCancel>إلغاء</AlertDialogCancel>
-            <AlertDialogAction onClick={handleLogout} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              تسجيل الخروج
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </header>
   );
 };

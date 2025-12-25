@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
+import ProtectedRoute from "./components/ProtectedRoute";
 import Dashboard from "./pages/Dashboard";
 import Login from "./pages/Login";
 import Transactions from "./pages/Transactions";
@@ -23,13 +24,13 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
           <Routes>
-            <Route path="/" element={<Dashboard />} />
             <Route path="/login" element={<Login />} />
-            <Route path="/transactions/:type" element={<Transactions />} />
-            <Route path="/transactions/:type/:id" element={<TransactionDetail />} />
-            <Route path="/transactions/create" element={<CreateTransaction />} />
-            <Route path="/notifications" element={<Notifications />} />
-            <Route path="/profile" element={<Profile />} />
+            <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+            <Route path="/transactions/:type" element={<ProtectedRoute><Transactions /></ProtectedRoute>} />
+            <Route path="/transactions/:type/:id" element={<ProtectedRoute><TransactionDetail /></ProtectedRoute>} />
+            <Route path="/transactions/create" element={<ProtectedRoute><CreateTransaction /></ProtectedRoute>} />
+            <Route path="/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
+            <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
