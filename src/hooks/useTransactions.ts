@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { fetchInbox, fetchSent, fetchDrafts, fetchDeleted, fetchTransactionDetails, fetchFormData, fetchNotifications } from "@/lib/api";
+import { fetchInbox, fetchSent, fetchDrafts, fetchDeleted, fetchTransactionDetails, fetchFormData, fetchNotifications, fetchTransactionFile } from "@/lib/api";
 
 export const useInbox = () => {
   return useQuery({
@@ -35,6 +35,32 @@ export const useTransactionDetails = (id: string) => {
     queryFn: () => fetchTransactionDetails(id),
     enabled: !!id,
   });
+};
+
+export const useTransactionAttachment = () => {
+  const openAttachment = async (
+    filePath: string,
+    fileName: string,
+    preview = false
+  ) => {
+    const blob = await fetchTransactionFile(filePath);
+    const url = URL.createObjectURL(blob);
+
+    if (preview) {
+      window.open(url);
+    } else {
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    }
+
+    URL.revokeObjectURL(url);
+  };
+
+  return { openAttachment };
 };
 
 export const useFormData = () => {
