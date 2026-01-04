@@ -28,9 +28,15 @@ const SOCKET_URL = "https://ghared-project-1lb7.onrender.com";
 const Header = () => {
   const location = useLocation();
   const navigate = useNavigate(); // 3. تعريف الهوك للتنقل
+  const { logout } = useAuth();
   const isLoginPage = location.pathname === "/login";
   const queryClient = useQueryClient();
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
+
+  const handleLogout = () => {
+    logout();
+    navigate("/login");
+  };
 
   // 1. كود جلب العدد (زي ما هو)
   const { data: notificationsData } = useQuery({
@@ -108,7 +114,7 @@ const Header = () => {
           <Button
             variant="outline"
             size="sm"
-            className="text-primary border-primary"
+            className="text-primary border-primary hover:bg-primary hover:text-primary-foreground transition-all duration-300 hover:scale-105"
           >
             تواصل معنا
           </Button>
@@ -122,7 +128,7 @@ const Header = () => {
             <img
               src={universityLogo}
               alt="Logo"
-              className="w-14 h-14 rounded-full shadow-md"
+              className="w-14 h-14 rounded-full shadow-md hover:scale-110 transition-transform duration-300 hover:shadow-lg"
             />
           </div>
         </div>
@@ -145,15 +151,28 @@ const Header = () => {
         </Link>
 
         <nav className="hidden md:flex items-center gap-8">
-          <Link to="/" className="text-foreground hover:text-primary">
-            الرئيسية
-          </Link>
-          <Link to="/services" className="text-foreground hover:text-primary">
-            خدماتنا
-          </Link>
-          <Link to="/contact" className="text-foreground hover:text-primary">
-            اتصل بنا
-          </Link>
+          {[
+            { path: "/contact", label: "اتصل بنا" },
+            { path: "/services", label: "خدماتنا" },
+            { path: "/", label: "الرئيسية" },
+          ].map((item) => (
+            <Link 
+              key={item.path}
+              to={item.path} 
+              className={`relative py-2 transition-all duration-300 hover:text-primary group ${
+                location.pathname === item.path 
+                  ? "text-primary font-medium" 
+                  : "text-foreground"
+              }`}
+            >
+              {item.label}
+              <span className={`absolute bottom-0 left-0 w-full h-0.5 bg-primary transform transition-transform duration-300 origin-right ${
+                location.pathname === item.path 
+                  ? "scale-x-100" 
+                  : "scale-x-0 group-hover:scale-x-100 group-hover:origin-left"
+              }`} />
+            </Link>
+          ))}
         </nav>
 
         <div className="flex items-center gap-4">
@@ -171,11 +190,15 @@ const Header = () => {
               )}
             </Button>
           </Link>
-          <Link to="/profile">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="rounded-full w-10 h-10 bg-primary text-primary-foreground"
+          <Link to="/profile" className="group">
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className={`rounded-full w-10 h-10 transition-all duration-300 hover:scale-110 hover:shadow-lg ${
+                location.pathname === "/profile"
+                  ? "bg-primary text-primary-foreground ring-2 ring-primary/30"
+                  : "bg-foreground text-background hover:bg-primary hover:text-primary-foreground"
+              }`}
             >
               <span className="font-bold">F</span>
             </Button>
