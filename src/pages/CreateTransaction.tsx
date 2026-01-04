@@ -233,8 +233,11 @@ const CreateTransaction = () => {
           parentTransactionId.toString()
         );
       }
-
-      formDataToSend.append("receivers", selectedReceivers.join(","));
+      // formDataToSend.append("receivers", selectedReceivers.join(","));
+      
+      selectedReceivers.forEach((receiverId) => {
+        formDataToSend.append("receivers[]", receiverId.toString());
+      });
 
       attachments.forEach((attachment) => {
         formDataToSend.append("attachments", attachment.file);
