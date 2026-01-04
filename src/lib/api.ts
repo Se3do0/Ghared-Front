@@ -52,10 +52,18 @@ export interface TransactionFull {
   }>;
 }
 
-export interface Receiver {
+export interface Employee {
   user_id: number;
   full_name: string;
   department_name: string;
+  department_id: number;
+  role_level: number;
+}
+
+export interface DepartmentReceivers {
+  department_id: number;
+  department_name: string;
+  employees: Employee[];
 }
 
 export interface TransactionType {
@@ -64,7 +72,7 @@ export interface TransactionType {
 }
 
 export interface FormData {
-  receivers: Receiver[];
+  receivers: DepartmentReceivers[];
   types: TransactionType[];
 }
 
@@ -237,6 +245,32 @@ export const fetchTransactionDetails = async (id: string): Promise<TransactionFu
   return result.data || null;
 };
 
+export const fetchTransactionFile = async (
+  filePath: string
+): Promise<Blob> => {
+  const token = localStorage.getItem("token");
+
+  if (!token) {
+    throw new Error("Token is required");
+  }
+
+  const response = await fetch(
+    `${BASE_URL}/api/transactions/file/${filePath}`,
+    {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error("Failed to fetch transaction file");
+  }
+
+  return await response.blob();
+};
+
 export const fetchFormData = async (): Promise<FormData> => {
   const token = getToken();
   if (!token) throw new Error("غير مسجل الدخول");
@@ -271,6 +305,28 @@ export const createTransaction = async (formData: globalThis.FormData): Promise<
 
   if (!response.ok) {
     throw new Error(result.message || "فشل في إنشاء المعاملة");
+  }
+
+  return result;
+};
+
+export const saveDraft = async (formData: globalThis.FormData): Promise<ApiResponse<unknown>> => {
+  const token = getToken();
+  if (!token) throw new Error("غير مسجل الدخول");
+
+  const response = await fetch(`${BASE_URL}/api/transactions/create`, {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${token}`,
+      "Accept": "application/json",
+    },
+    body: formData,
+  });
+
+  const result = await response.json();
+
+  if (!response.ok) {
+    throw new Error(result.message || "فشل في حفظ المسودة");
   }
 
   return result;

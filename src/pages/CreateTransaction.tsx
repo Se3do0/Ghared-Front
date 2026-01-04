@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import { Send, Save, Plus, Trash2, Upload, Loader2, FileText, Calendar } from "lucide-react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { Send, Save, Plus, Trash2, Upload, Loader2, FileText, Calendar, Search, X } from "lucide-react";
 import Header from "@/components/layout/Header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,10 +10,17 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
-import { useFormData, useSent } from "@/hooks/useTransactions";
-import { createTransaction } from "@/lib/api";
+import { useFormData, useSent, useDrafts } from "@/hooks/useTransactions";
+import { createTransaction, saveDraft } from "@/lib/api";
 
 interface Attachment {
   id: string;
@@ -24,10 +31,12 @@ interface Attachment {
 
 const CreateTransaction = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { user, isLoading: authLoading } = useAuth();
   const { data: formData, isLoading: formLoading } = useFormData();
   const { data: historyTransactions, isLoading: historyLoading } = useSent();
-  
+  const { data: draftsData, refetch: refetchDrafts } = useDrafts();
+
   const [activeTab, setActiveTab] = useState("main");
   const [subject, setSubject] = useState("");
   const [content, setContent] = useState("");
@@ -38,7 +47,9 @@ const CreateTransaction = () => {
   const [selectedReceivers, setSelectedReceivers] = useState<number[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [parentTransactionId, setParentTransactionId] = useState<number | null>(null);
-  
+  const [searchQuery, setSearchQuery] = useState("");
+  const [departmentFilter, setDepartmentFilter] = useState<string>("all");
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
@@ -80,6 +91,19 @@ const CreateTransaction = () => {
     toast.success("تم حذف المرفق");
   };
 
+  useEffect(() => {
+    const draftId = searchParams.get("draftId");
+    if (draftId && draftsData) {
+      const draft = draftsData.find((d: any) => d.transaction_id === Number(draftId));
+      if (draft) {
+        setSubject(draft.subject || "");
+        setContent(draft.content || "");
+        // TODO: Parse receivers from draft when API returns them
+        toast.success("تم تحميل المسودة بنجاح");
+      }
+    }
+  }, [searchParams, draftsData]);
+
   // Reset parent transaction when switching to "new"
   useEffect(() => {
     if (transactionNature === "new") {
@@ -96,9 +120,42 @@ const CreateTransaction = () => {
   };
 
   const handleSaveDraft = async () => {
-    // For now just navigate, draft API can be added later
-    toast.success("تم حفظ المعاملة كمسودة");
-    navigate("/transactions/drafts");
+    if (!subject.trim()) {
+      toast.error("يرجى إدخال موضوع المعاملة");
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      const formDataToSend = new FormData();
+      formDataToSend.append("subject", subject);
+      formDataToSend.append("content", content);
+      formDataToSend.append("type_id", selectedTypeId?.toString() || "1");
+      formDataToSend.append("is_draft", "true");
+
+      if (parentTransactionId) {
+        formDataToSend.append("parent_transaction_id", parentTransactionId.toString());
+      }
+
+      if (selectedReceivers.length > 0) {
+        formDataToSend.append("receivers", selectedReceivers.join(","));
+      }
+
+      attachments.forEach((attachment) => {
+        formDataToSend.append("attachments", attachment.file);
+      });
+
+      const result = await saveDraft(formDataToSend);
+
+      toast.success(result.message || "تم حفظ المعاملة كمسودة بنجاح");
+      await refetchDrafts();
+      navigate("/transactions/drafts");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "فشل في حفظ المسودة");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleSubmit = async () => {
@@ -390,31 +447,113 @@ const CreateTransaction = () => {
 
             <TabsContent value="send" className="space-y-6">
               <h3 className="font-bold text-right text-lg">تحديد الجهات المرسل إليها</h3>
-              
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {receivers.map((receiver) => (
-                  <div
-                    key={receiver.user_id}
-                    className={`border rounded-xl p-4 text-right cursor-pointer transition-all duration-200 ${
-                      selectedReceivers.includes(receiver.user_id) 
-                        ? 'border-primary bg-primary/5' 
-                        : 'border-border hover:border-primary/50'
-                    }`}
-                    onClick={() => toggleReceiver(receiver.user_id)}
-                  >
-                    <div className="flex items-start justify-end gap-3">
-                      <div>
-                        <p className="font-medium">{receiver.full_name}</p>
-                        <p className="text-sm text-primary">{receiver.department_name}</p>
-                      </div>
-                      <Checkbox
-                        checked={selectedReceivers.includes(receiver.user_id)}
-                        onCheckedChange={() => toggleReceiver(receiver.user_id)}
-                      />
-                    </div>
+
+              <div className="space-y-4 border border-border rounded-xl p-4 bg-muted/20">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="relative">
+                    <Search className="absolute right-3 top-3 w-4 h-4 text-muted-foreground" />
+                    <Input
+                      placeholder="ابحث برقم أو اسم الموظف..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="pl-4 pr-10 text-right"
+                      dir="rtl"
+                    />
                   </div>
-                ))}
+
+                  <Select value={departmentFilter} onValueChange={setDepartmentFilter}>
+                    <SelectTrigger className="text-right">
+                      <SelectValue placeholder="اختر الإدارة" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">كل الإدارات</SelectItem>
+                      {Array.from(
+                        new Map(
+                          receivers.flatMap((dept) =>
+                            dept.employees.map((emp) => [
+                              emp.department_id,
+                              emp.department_name,
+                            ])
+                          )
+                        ).values()
+                      ).map(([deptId, deptName]) => (
+                        <SelectItem key={deptId} value={deptId.toString()}>
+                          {deptName}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {selectedReceivers.length > 0 && (
+                  <div className="flex items-center justify-between p-3 bg-primary/10 rounded-lg border border-primary/30">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setSelectedReceivers([])}
+                      className="gap-2 text-primary hover:bg-primary/20"
+                    >
+                      <X className="w-4 h-4" />
+                      مسح التحديد
+                    </Button>
+                    <span className="text-sm font-medium">
+                      تم تحديد {selectedReceivers.length} موظف
+                    </span>
+                  </div>
+                )}
               </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {receivers.flatMap((dept) =>
+                  dept.employees
+                    .filter((emp) => {
+                      const matchesSearch =
+                        emp.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                        emp.user_id.toString().includes(searchQuery);
+                      const matchesDept =
+                        departmentFilter === "all" || emp.department_id.toString() === departmentFilter;
+                      return matchesSearch && matchesDept;
+                    })
+                    .map((receiver) => (
+                      <div
+                        key={receiver.user_id}
+                        className={`border rounded-xl p-4 text-right cursor-pointer transition-all duration-200 ${
+                          selectedReceivers.includes(receiver.user_id)
+                            ? 'border-primary bg-primary/5 shadow-md'
+                            : 'border-border hover:border-primary/50'
+                        }`}
+                        onClick={() => toggleReceiver(receiver.user_id)}
+                      >
+                        <div className="flex items-start justify-end gap-3">
+                          <div>
+                            <p className="font-medium">{receiver.full_name}</p>
+                            <p className="text-sm text-primary">{receiver.department_name}</p>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              #{receiver.user_id}
+                            </p>
+                          </div>
+                          <Checkbox
+                            checked={selectedReceivers.includes(receiver.user_id)}
+                            onCheckedChange={() => toggleReceiver(receiver.user_id)}
+                          />
+                        </div>
+                      </div>
+                    ))
+                )}
+              </div>
+
+              {receivers.flatMap((d) => d.employees).filter((emp) => {
+                const matchesSearch =
+                  emp.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                  emp.user_id.toString().includes(searchQuery);
+                const matchesDept =
+                  departmentFilter === "all" || emp.department_id.toString() === departmentFilter;
+                return matchesSearch && matchesDept;
+              }).length === 0 && (
+                <div className="text-center py-8 text-muted-foreground">
+                  لم يتم العثور على موظفين
+                </div>
+              )}
 
               <div className="flex gap-4 justify-start pt-8">
                 <Button onClick={handleSubmit} disabled={isSubmitting} className="gap-2">
