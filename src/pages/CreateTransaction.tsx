@@ -1,6 +1,6 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Send, Save, Plus, Trash2, Upload, Loader2, FileText, Calendar, Search, X } from "lucide-react";
+import { Send, Save, Plus, Trash2, Upload, Loader2, FileText, Calendar, Search, X, Filter } from "lucide-react";
 import Header from "@/components/layout/Header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -53,6 +53,36 @@ const CreateTransaction = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
+  const receivers = formData?.receivers || [];
+  const types = formData?.types || [];
+
+  // --- استخراج الأقسام بشكل ديناميكي من الـ API ---
+  const departments = useMemo(() => {
+    const deptsMap = new Map();
+    receivers.forEach((deptGroup) => {
+      deptGroup.employees.forEach((emp) => {
+        if (!deptsMap.has(emp.department_id)) {
+          deptsMap.set(emp.department_id, emp.department_name);
+        }
+      });
+    });
+    return Array.from(deptsMap.entries()).map(([id, name]) => ({ id, name }));
+  }, [receivers]);
+
+  // --- منطق الفلترة المشترك (بحث + قسم) ---
+  const filteredEmployees = useMemo(() => {
+    return receivers.flatMap(dept => dept.employees).filter((emp) => {
+      const matchesSearch =
+        emp.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        emp.user_id.toString().includes(searchQuery);
+
+      const matchesDept =
+        departmentFilter === "all" || emp.department_id.toString() === departmentFilter;
+
+      return matchesSearch && matchesDept;
+    });
+  }, [receivers, searchQuery, departmentFilter]);
+
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -69,14 +99,14 @@ const CreateTransaction = () => {
       toast.error("يرجى إدخال وصف الملف");
       return;
     }
-    
+
     const newAttachment: Attachment = {
       id: Date.now().toString(),
       file: selectedFile,
       description: attachmentDescription,
       date: new Date().toLocaleDateString('ar-EG'),
     };
-    
+
     setAttachments([...attachments, newAttachment]);
     setAttachmentDescription("");
     setSelectedFile(null);
@@ -98,13 +128,11 @@ const CreateTransaction = () => {
       if (draft) {
         setSubject(draft.subject || "");
         setContent(draft.content || "");
-        // TODO: Parse receivers from draft when API returns them
         toast.success("تم تحميل المسودة بنجاح");
       }
     }
   }, [searchParams, draftsData]);
 
-  // Reset parent transaction when switching to "new"
   useEffect(() => {
     if (transactionNature === "new") {
       setParentTransactionId(null);
@@ -112,7 +140,7 @@ const CreateTransaction = () => {
   }, [transactionNature]);
 
   const toggleReceiver = (userId: number) => {
-    setSelectedReceivers(prev => 
+    setSelectedReceivers(prev =>
       prev.includes(userId)
         ? prev.filter(id => id !== userId)
         : [...prev, userId]
@@ -126,7 +154,6 @@ const CreateTransaction = () => {
     }
 
     setIsSubmitting(true);
-
     try {
       const formDataToSend = new FormData();
       formDataToSend.append("subject", subject);
@@ -147,7 +174,6 @@ const CreateTransaction = () => {
       });
 
       const result = await saveDraft(formDataToSend);
-
       toast.success(result.message || "تم حفظ المعاملة كمسودة بنجاح");
       await refetchDrafts();
       navigate("/transactions/drafts");
@@ -173,30 +199,24 @@ const CreateTransaction = () => {
     }
 
     setIsSubmitting(true);
-    
     try {
       const formDataToSend = new FormData();
       formDataToSend.append("subject", subject);
       formDataToSend.append("content", content);
       formDataToSend.append("type_id", selectedTypeId.toString());
-      // send is_draft as false
       formDataToSend.append("is_draft", "false");
-      
-      // Add parent transaction ID if this is a reply/rectification
+
       if (parentTransactionId) {
         formDataToSend.append("parent_transaction_id", parentTransactionId.toString());
       }
 
-      // Add receivers as comma-separated string (API expects single value)
       formDataToSend.append("receivers", selectedReceivers.join(","));
 
-      // Add attachments (each as 'attachments' field - API expects this format)
       attachments.forEach((attachment) => {
         formDataToSend.append("attachments", attachment.file);
       });
 
       const result = await createTransaction(formDataToSend);
-      
       toast.success(result.message || "تم إرسال المعاملة بنجاح");
       navigate("/transactions/outgoing");
     } catch (error) {
@@ -219,13 +239,10 @@ const CreateTransaction = () => {
     return null;
   }
 
-  const receivers = formData?.receivers || [];
-  const types = formData?.types || [];
-
   return (
     <div className="min-h-screen bg-background">
       <Header />
-      
+
       <main className="container mx-auto px-4 py-8">
         <div className="max-w-4xl mx-auto page-container animate-fade-in">
           <h1 className="text-2xl font-bold text-right mb-6">إنشاء معاملة</h1>
@@ -274,11 +291,10 @@ const CreateTransaction = () => {
                 </RadioGroup>
               </div>
 
-              {/* History Transaction Selection - shown when "استدراك" is selected */}
               {transactionNature === "reply" && (
                 <div className="space-y-4 border border-border rounded-xl p-4 bg-muted/30">
                   <Label className="text-right block font-medium">الرجاء اختيار المعاملة المراد استدراكها</Label>
-                  
+
                   {historyLoading ? (
                     <div className="flex items-center justify-center py-8">
                       <Loader2 className="w-6 h-6 animate-spin text-primary" />
@@ -290,11 +306,10 @@ const CreateTransaction = () => {
                         <label
                           key={transaction.transaction_id}
                           htmlFor={`reply-${transaction.transaction_id}`}
-                          className={`block border rounded-lg p-4 cursor-pointer transition-all duration-200 ${
-                            parentTransactionId === transaction.transaction_id
-                              ? 'border-primary bg-primary/5 shadow-sm'
-                              : 'border-border hover:border-primary/50 bg-background'
-                          }`}
+                          className={`block border rounded-lg p-4 cursor-pointer transition-all duration-200 ${parentTransactionId === transaction.transaction_id
+                            ? 'border-primary bg-primary/5 shadow-sm'
+                            : 'border-border hover:border-primary/50 bg-background'
+                            }`}
                         >
                           <div className="flex items-center justify-between">
                             <span className="badge bg-muted text-muted-foreground text-xs px-2 py-1 rounded-full border border-border">
@@ -335,9 +350,9 @@ const CreateTransaction = () => {
 
               <div className="space-y-4">
                 <Label className="text-right block">نوع المعاملة</Label>
-                <RadioGroup 
-                  value={selectedTypeId?.toString() || ""} 
-                  onValueChange={(val) => setSelectedTypeId(Number(val))} 
+                <RadioGroup
+                  value={selectedTypeId?.toString() || ""}
+                  onValueChange={(val) => setSelectedTypeId(Number(val))}
                   className="flex gap-8 justify-end flex-wrap"
                 >
                   {types.map((type) => (
@@ -359,7 +374,7 @@ const CreateTransaction = () => {
             <TabsContent value="attachments" className="space-y-6">
               <div className="border border-border rounded-xl p-6">
                 <h3 className="font-bold text-right mb-4">المرفقات</h3>
-                
+
                 <div className="flex gap-4 items-end mb-6">
                   <Button onClick={handleAddAttachment} className="gap-2">
                     <Plus className="w-4 h-4" />
@@ -383,13 +398,13 @@ const CreateTransaction = () => {
                       onChange={handleFileSelect}
                       className="hidden"
                     />
-                    <Button 
-                      variant="outline" 
+                    <Button
+                      variant="outline"
                       className="w-full gap-2"
                       onClick={() => fileInputRef.current?.click()}
                     >
                       <Upload className="w-4 h-4" />
-                      {selectedFile ? selectedFile.name.slice(0, 15) + "..." : "Choose File"}
+                      {selectedFile ? selectedFile.name.slice(0, 15) + "..." : "إرفاق ملف"}
                     </Button>
                   </div>
                 </div>
@@ -450,6 +465,7 @@ const CreateTransaction = () => {
 
               <div className="space-y-4 border border-border rounded-xl p-4 bg-muted/20">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* شريط البحث */}
                   <div className="relative">
                     <Search className="absolute right-3 top-3 w-4 h-4 text-muted-foreground" />
                     <Input
@@ -461,24 +477,19 @@ const CreateTransaction = () => {
                     />
                   </div>
 
+                  {/* فلتر الأقسام الديناميكي */}
                   <Select value={departmentFilter} onValueChange={setDepartmentFilter}>
-                    <SelectTrigger className="text-right">
-                      <SelectValue placeholder="اختر الإدارة" />
+                    <SelectTrigger className="text-right bg-background">
+                      <div className="flex items-center gap-2">
+                        <Filter className="w-4 h-4 text-primary" />
+                        <SelectValue placeholder="اختر الإدارة" />
+                      </div>
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent dir="rtl">
                       <SelectItem value="all">كل الإدارات</SelectItem>
-                      {Array.from(
-                        new Map(
-                          receivers.flatMap((dept) =>
-                            dept.employees.map((emp) => [
-                              emp.department_id,
-                              emp.department_name,
-                            ])
-                          )
-                        ).values()
-                      ).map(([deptId, deptName]) => (
-                        <SelectItem key={deptId} value={deptId.toString()}>
-                          {deptName}
+                      {departments.map((dept) => (
+                        <SelectItem key={dept.id} value={dept.id.toString()}>
+                          {dept.name}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -504,54 +515,35 @@ const CreateTransaction = () => {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {receivers.flatMap((dept) =>
-                  dept.employees
-                    .filter((emp) => {
-                      const matchesSearch =
-                        emp.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                        emp.user_id.toString().includes(searchQuery);
-                      const matchesDept =
-                        departmentFilter === "all" || emp.department_id.toString() === departmentFilter;
-                      return matchesSearch && matchesDept;
-                    })
-                    .map((receiver) => (
-                      <div
-                        key={receiver.user_id}
-                        className={`border rounded-xl p-4 text-right cursor-pointer transition-all duration-200 ${
-                          selectedReceivers.includes(receiver.user_id)
-                            ? 'border-primary bg-primary/5 shadow-md'
-                            : 'border-border hover:border-primary/50'
-                        }`}
-                        onClick={() => toggleReceiver(receiver.user_id)}
-                      >
-                        <div className="flex items-start justify-end gap-3">
-                          <div>
-                            <p className="font-medium">{receiver.full_name}</p>
-                            <p className="text-sm text-primary">{receiver.department_name}</p>
-                            <p className="text-xs text-muted-foreground mt-1">
-                              #{receiver.user_id}
-                            </p>
-                          </div>
-                          <Checkbox
-                            checked={selectedReceivers.includes(receiver.user_id)}
-                            onCheckedChange={() => toggleReceiver(receiver.user_id)}
-                          />
-                        </div>
+                {filteredEmployees.map((receiver) => (
+                  <div
+                    key={receiver.user_id}
+                    className={`border rounded-xl p-4 text-right cursor-pointer transition-all duration-200 ${selectedReceivers.includes(receiver.user_id)
+                      ? 'border-primary bg-primary/5 shadow-md'
+                      : 'border-border hover:border-primary/50'
+                      }`}
+                    onClick={() => toggleReceiver(receiver.user_id)}
+                  >
+                    <div className="flex items-start justify-end gap-3">
+                      <div>
+                        <p className="font-medium">{receiver.full_name}</p>
+                        <p className="text-sm text-primary">{receiver.department_name}</p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          #{receiver.user_id}
+                        </p>
                       </div>
-                    ))
-                )}
+                      <Checkbox
+                        checked={selectedReceivers.includes(receiver.user_id)}
+                        onCheckedChange={() => toggleReceiver(receiver.user_id)}
+                      />
+                    </div>
+                  </div>
+                ))}
               </div>
 
-              {receivers.flatMap((d) => d.employees).filter((emp) => {
-                const matchesSearch =
-                  emp.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                  emp.user_id.toString().includes(searchQuery);
-                const matchesDept =
-                  departmentFilter === "all" || emp.department_id.toString() === departmentFilter;
-                return matchesSearch && matchesDept;
-              }).length === 0 && (
+              {filteredEmployees.length === 0 && (
                 <div className="text-center py-8 text-muted-foreground">
-                  لم يتم العثور على موظفين
+                  لم يتم العثور على موظفين يطابقون البحث
                 </div>
               )}
 
