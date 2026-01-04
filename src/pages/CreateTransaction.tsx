@@ -1,21 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 
 import { useNavigate } from "react-router-dom";
-
-import {
-  Send,
-  Save,
-  Plus,
-  Trash2,
-  Upload,
-  Loader2,
-  FileText,
-  Calendar,
-  ChevronDown,
-  ChevronUp,
-  CheckSquare,
-  Square,
-} from "lucide-react";
+import { Send, Save, Plus, Trash2, Upload, Loader2, FileText, Calendar, ChevronDown, ChevronUp, CheckSquare, Square } from "lucide-react";
 
 import Header from "@/components/layout/Header";
 
@@ -45,9 +31,7 @@ import {
 import { toast } from "sonner";
 
 import { useAuth } from "@/contexts/AuthContext";
-
 import { useFormData, useSent } from "@/hooks/useTransactions";
-
 import { createTransaction } from "@/lib/api";
 
 interface Attachment {
@@ -66,9 +50,9 @@ const CreateTransaction = () => {
   const { user, isLoading: authLoading } = useAuth();
 
   const { data: formData, isLoading: formLoading } = useFormData();
-
+    
   const { data: historyTransactions, isLoading: historyLoading } = useSent();
-
+  
   const [activeTab, setActiveTab] = useState("main");
 
   const [subject, setSubject] = useState("");
@@ -87,9 +71,7 @@ const CreateTransaction = () => {
 
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const [parentTransactionId, setParentTransactionId] = useState<number | null>(
-    null
-  );
+  const [parentTransactionId, setParentTransactionId] = useState<number | null>(null);
 
   // State for expanding/collapsing departments
 
@@ -150,7 +132,6 @@ const CreateTransaction = () => {
   };
 
   // Reset parent transaction when switching to "new"
-
   useEffect(() => {
     if (transactionNature === "new") {
       setParentTransactionId(null);
@@ -158,9 +139,9 @@ const CreateTransaction = () => {
   }, [transactionNature]);
 
   const toggleReceiver = (userId: number) => {
-    setSelectedReceivers((prev) =>
+    setSelectedReceivers(prev => 
       prev.includes(userId)
-        ? prev.filter((id) => id !== userId)
+        ? prev.filter(id => id !== userId)
         : [...prev, userId]
     );
   };
@@ -240,6 +221,11 @@ const CreateTransaction = () => {
       formDataToSend.append("type_id", selectedTypeId.toString());
 
       formDataToSend.append("is_draft", "false");
+      
+      // Add parent transaction ID if this is a reply/rectification
+      if (parentTransactionId) {
+        formDataToSend.append("parent_transaction_id", parentTransactionId.toString());
+      }
 
       if (parentTransactionId) {
         formDataToSend.append(
@@ -352,19 +338,15 @@ const CreateTransaction = () => {
                 </RadioGroup>
               </div>
 
+              {/* History Transaction Selection - shown when "استدراك" is selected */}
               {transactionNature === "reply" && (
                 <div className="space-y-4 border border-border rounded-xl p-4 bg-muted/30">
-                  <Label className="text-right block font-medium">
-                    الرجاء اختيار المعاملة المراد استدراكها
-                  </Label>
-
+                  <Label className="text-right block font-medium">الرجاء اختيار المعاملة المراد استدراكها</Label>
+                  
                   {historyLoading ? (
                     <div className="flex items-center justify-center py-8">
                       <Loader2 className="w-6 h-6 animate-spin text-primary" />
-
-                      <span className="mr-2 text-muted-foreground">
-                        جاري التحميل...
-                      </span>
+                      <span className="mr-2 text-muted-foreground">جاري التحميل...</span>
                     </div>
                   ) : historyTransactions && historyTransactions.length > 0 ? (
                     <div className="space-y-3 max-h-[300px] overflow-y-auto">
@@ -374,8 +356,8 @@ const CreateTransaction = () => {
                           htmlFor={`reply-${transaction.transaction_id}`}
                           className={`block border rounded-lg p-4 cursor-pointer transition-all duration-200 ${
                             parentTransactionId === transaction.transaction_id
-                              ? "border-primary bg-primary/5 shadow-sm"
-                              : "border-border hover:border-primary/50 bg-background"
+                              ? 'border-primary bg-primary/5 shadow-sm'
+                              : 'border-border hover:border-primary/50 bg-background'
                           }`}
                         >
                           <div className="flex items-center justify-between">
@@ -405,15 +387,8 @@ const CreateTransaction = () => {
                                 name="parent-transaction"
                                 id={`reply-${transaction.transaction_id}`}
                                 value={transaction.transaction_id}
-                                checked={
-                                  parentTransactionId ===
-                                  transaction.transaction_id
-                                }
-                                onChange={() =>
-                                  setParentTransactionId(
-                                    transaction.transaction_id
-                                  )
-                                }
+                                checked={parentTransactionId === transaction.transaction_id}
+                                onChange={() => setParentTransactionId(transaction.transaction_id)}
                                 className="w-4 h-4 text-primary"
                               />
                             </div>

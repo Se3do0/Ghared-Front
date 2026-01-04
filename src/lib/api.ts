@@ -52,10 +52,18 @@ export interface TransactionFull {
   }>;
 }
 
-export interface Receiver {
+export interface Employee {
   user_id: number;
   full_name: string;
   department_name: string;
+  department_id: number;
+  role_level: number;
+}
+
+export interface DepartmentReceivers {
+  department_id: number;
+  department_name: string;
+  employees: Employee[];
 }
 
 export interface TransactionType {
@@ -64,7 +72,7 @@ export interface TransactionType {
 }
 
 export interface FormData {
-  receivers: Receiver[];
+  receivers: DepartmentReceivers[];
   types: TransactionType[];
 }
 
@@ -235,6 +243,32 @@ export const fetchTransactionDetails = async (id: string): Promise<TransactionFu
 
   const result: ApiResponse<TransactionFull> = await response.json();
   return result.data || null;
+};
+
+export const fetchTransactionFile = async (
+  filePath: string
+): Promise<Blob> => {
+  const token = localStorage.getItem("token");
+
+  if (!token) {
+    throw new Error("Token is required");
+  }
+
+  const response = await fetch(
+    `${BASE_URL}/api/transactions/file/${filePath}`,
+    {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error("Failed to fetch transaction file");
+  }
+
+  return await response.blob();
 };
 
 export const fetchFormData = async (): Promise<FormData> => {

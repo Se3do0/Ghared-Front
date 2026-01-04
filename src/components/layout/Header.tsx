@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { Bell } from "lucide-react";
+import { Bell, LogOut } from "lucide-react";
 import { Link, useLocation, useNavigate } from "react-router-dom"; // 1. ضفنا useNavigate
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -8,8 +8,20 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import axios from "axios";
 import { io } from "socket.io-client";
 import { toast } from "sonner"; // 2. استيراد التوستر
+import { useState } from "react";
+import { fetchNotifications } from "@/lib/api";
+import { useAuth } from "@/contexts/AuthContext";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
-// الروابط بتاعتك المرفوعة
 const API_BASE_URL = "https://ghared-project-1lb7.onrender.com/api";
 const SOCKET_URL = "https://ghared-project-1lb7.onrender.com";
 
@@ -18,6 +30,7 @@ const Header = () => {
   const navigate = useNavigate(); // 3. تعريف الهوك للتنقل
   const isLoginPage = location.pathname === "/login";
   const queryClient = useQueryClient();
+  const [showLogoutDialog, setShowLogoutDialog] = useState(false);
 
   // 1. كود جلب العدد (زي ما هو)
   const { data: notificationsData } = useQuery({
@@ -167,8 +180,34 @@ const Header = () => {
               <span className="font-bold">F</span>
             </Button>
           </Link>
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={() => setShowLogoutDialog(true)}
+            className="hover:bg-destructive/10 hover:text-destructive transition-all duration-300"
+            title="تسجيل الخروج"
+          >
+            <LogOut className="w-5 h-5" />
+          </Button>
         </div>
       </div>
+
+      <AlertDialog open={showLogoutDialog} onOpenChange={setShowLogoutDialog}>
+        <AlertDialogContent dir="rtl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>تأكيد تسجيل الخروج</AlertDialogTitle>
+            <AlertDialogDescription>
+              هل أنت متأكد من أنك تريد تسجيل الخروج من حسابك؟
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-row-reverse gap-2">
+            <AlertDialogCancel>إلغاء</AlertDialogCancel>
+            <AlertDialogAction onClick={handleLogout} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              تسجيل الخروج
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </header>
   );
 };

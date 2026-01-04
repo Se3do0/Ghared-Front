@@ -4,9 +4,11 @@ import Header from "@/components/layout/Header";
 import TransactionsSidebar from "@/components/layout/TransactionsSidebar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { useTransactionDetails } from "@/hooks/useTransactions";
+import { useTransactionDetails, useTransactionAttachment } from "@/hooks/useTransactions";
 import { useAuth } from "@/contexts/AuthContext";
 import { useEffect } from "react";
+
+const { openAttachment } = useTransactionAttachment();
 
 const TransactionDetail = () => {
   const { id, type } = useParams();
@@ -113,8 +115,6 @@ const TransactionDetail = () => {
                   <h3 className="font-bold text-right mb-4">المرفقات</h3>
                   <div className="space-y-3">
                     {attachments.map((attachment) => {
-                      const baseUrl = "https://ghared-project-1lb7.onrender.com/uploads/";
-                      const fileUrl = `${baseUrl}${attachment.file_path}`;
                       const fileName = attachment.description || attachment.file_path;
                       
                       return (
@@ -126,22 +126,33 @@ const TransactionDetail = () => {
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => window.open(fileUrl, "_blank")}
+                              onClick={() =>
+                                openAttachment(
+                                  attachment.file_path,
+                                  fileName,
+                                  true // معاينة
+                                )
+                              }
                               className="gap-2"
                             >
                               <Eye className="w-4 h-4" />
                               معاينة
                             </Button>
-                            <a
-                              href={fileUrl}
-                              download={fileName}
-                              className="inline-flex"
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() =>
+                                openAttachment(
+                                  attachment.file_path,
+                                  fileName,
+                                  false // تحميل
+                                )
+                              }
+                              className="gap-2"
                             >
-                              <Button variant="outline" size="sm" className="gap-2">
-                                <Download className="w-4 h-4" />
-                                تحميل
-                              </Button>
-                            </a>
+                              <Download className="w-4 h-4" />
+                              تحميل
+                            </Button>
                           </div>
                           <div className="flex items-center gap-3">
                             <div className="text-right">
