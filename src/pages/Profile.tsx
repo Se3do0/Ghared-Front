@@ -28,7 +28,7 @@ const Profile = () => {
   const getProfileImageUrl = (profilePicture: string | null | undefined) => {
     if (!profilePicture) return null;
     if (profilePicture.startsWith("http") || profilePicture.startsWith("data:")) return profilePicture;
-    return `${BASE_URL}/${profilePicture}`;
+    return `${BASE_URL}/uploads/Images/${profilePicture}`;
   };
 
   useEffect(() => {
@@ -103,8 +103,9 @@ const Profile = () => {
       formDataToSend.append("email", profile?.email || "");
       formDataToSend.append("mobileNumber", formData.mobile_number);
 
-      if (formData.password) {
-        formDataToSend.append("password", formData.password);
+      const trimmedPassword = formData.password.trim();
+      if (trimmedPassword) {
+        formDataToSend.append("password", trimmedPassword);
       }
       if (selectedFile) {
         formDataToSend.append("profilePicture", selectedFile);

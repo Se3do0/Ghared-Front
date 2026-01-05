@@ -47,7 +47,7 @@ const Header = () => {
   const getProfileImageUrl = (profilePicture: string | null) => {
     if (!profilePicture) return undefined;
     if (profilePicture.startsWith("http")) return profilePicture;
-    return `${BASE_URL}/${profilePicture}`;
+    return `${BASE_URL}/uploads/Images/${profilePicture}`;
   };
 
   const handleLogout = () => {
@@ -118,14 +118,14 @@ const Header = () => {
               key={item.path}
               to={item.path}
               className={`relative py-2 transition-all duration-300 hover:text-primary group ${location.pathname === item.path
-                  ? "text-primary font-medium"
-                  : "text-foreground"
+                ? "text-primary font-medium"
+                : "text-foreground"
                 }`}
             >
               {item.label}
               <span className={`absolute bottom-0 left-0 w-full h-0.5 bg-primary transform transition-transform duration-300 origin-right ${location.pathname === item.path
-                  ? "scale-x-100"
-                  : "scale-x-0 group-hover:scale-x-100 group-hover:origin-left"
+                ? "scale-x-100"
+                : "scale-x-0 group-hover:scale-x-100 group-hover:origin-left"
                 }`} />
             </Link>
           ))}
@@ -149,8 +149,8 @@ const Header = () => {
           <Link to="/profile" className="group">
             <Avatar
               className={`w-10 h-10 transition-all duration-300 hover:scale-110 hover:shadow-lg cursor-pointer ${location.pathname === "/profile"
-                  ? "ring-2 ring-primary ring-offset-2"
-                  : ""
+                ? "ring-2 ring-primary ring-offset-2"
+                : ""
                 }`}
             >
               <AvatarImage
