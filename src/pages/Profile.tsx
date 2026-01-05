@@ -98,9 +98,11 @@ const Profile = () => {
     try {
       const formDataToSend = new FormData();
 
-      if (formData.mobile_number !== profile?.mobile_number) {
-        formDataToSend.append("mobile_number", formData.mobile_number);
-      }
+      // Always append required fields with camelCase keys
+      formDataToSend.append("fullName", profile?.full_name || "");
+      formDataToSend.append("email", profile?.email || "");
+      formDataToSend.append("mobileNumber", formData.mobile_number);
+
       if (formData.password) {
         formDataToSend.append("password", formData.password);
       }

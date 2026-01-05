@@ -181,7 +181,7 @@ export const updateUserProfile = async (formData: globalThis.FormData): Promise<
   const token = getToken();
   if (!token) throw new Error("غير مسجل الدخول");
 
-  const response = await fetch(`${BASE_URL}/api/users/profile`, {
+  const response = await fetch(`${BASE_URL}/api/users/profile/update`, {
     method: "PUT",
     headers: {
       "Authorization": `Bearer ${token}`,
