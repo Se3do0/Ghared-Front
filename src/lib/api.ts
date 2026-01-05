@@ -85,6 +85,20 @@ export interface Notification {
   is_read: boolean;
 }
 
+export interface UserProfileData {
+  full_name: string;
+  email: string;
+  mobile_number: string;
+  profile_picture: string | null;
+}
+
+export interface UserProfileResponse {
+  status: string;
+  data: {
+    user: UserProfileData;
+  };
+}
+
 export interface ApiResponse<T> {
   status: string;
   data: T;
@@ -141,9 +155,33 @@ export const login = async (email: string, password: string): Promise<LoginRespo
   return data;
 };
 
-export const updateProfile = async (formData: globalThis.FormData): Promise<ApiResponse<User>> => {
+export const fetchUserProfile = async (): Promise<UserProfileData> => {
   const token = getToken();
-  const response = await fetch(`${BASE_URL}/api/users/profile/update`, {
+  if (!token) throw new Error("غير مسجل الدخول");
+
+  const response = await fetch(`${BASE_URL}/api/users/profile`, {
+    headers: authHeaders(),
+  });
+
+  if (response.status === 401) {
+    clearAuth();
+    throw new Error("انتهت صلاحية الجلسة");
+  }
+
+  const result: UserProfileResponse = await response.json();
+
+  if (!response.ok) {
+    throw new Error("فشل في جلب بيانات الملف الشخصي");
+  }
+
+  return result.data.user;
+};
+
+export const updateUserProfile = async (formData: globalThis.FormData): Promise<ApiResponse<UserProfileData>> => {
+  const token = getToken();
+  if (!token) throw new Error("غير مسجل الدخول");
+
+  const response = await fetch(`${BASE_URL}/api/users/profile`, {
     method: "PUT",
     headers: {
       "Authorization": `Bearer ${token}`,
@@ -151,13 +189,18 @@ export const updateProfile = async (formData: globalThis.FormData): Promise<ApiR
     body: formData,
   });
 
-  const data = await response.json();
-
-  if (!response.ok) {
-    throw new Error(data.message || "فشل في تحديث الملف الشخصي");
+  if (response.status === 401) {
+    clearAuth();
+    throw new Error("انتهت صلاحية الجلسة");
   }
 
-  return data;
+  const result = await response.json();
+
+  if (!response.ok) {
+    throw new Error(result.message || "فشل في تحديث الملف الشخصي");
+  }
+
+  return result;
 };
 
 export const fetchInbox = async (): Promise<InboxTransaction[]> => {

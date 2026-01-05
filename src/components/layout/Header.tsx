@@ -1,11 +1,12 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Bell, LogOut } from "lucide-react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import universityLogo from "@/assets/hurghada-logo.png";
 import { useQuery } from "@tanstack/react-query";
-import { fetchNotifications } from "@/lib/api";
+import { fetchNotifications, fetchUserProfile, BASE_URL, UserProfileData } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   AlertDialog,
@@ -24,6 +25,30 @@ const Header = () => {
   const { logout } = useAuth();
   const isLoginPage = location.pathname === "/login";
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
+  const [userProfile, setUserProfile] = useState<UserProfileData | null>(null);
+
+  useEffect(() => {
+    if (!isLoginPage) {
+      fetchUserProfile()
+        .then((data) => setUserProfile(data))
+        .catch(() => setUserProfile(null));
+    }
+  }, [isLoginPage]);
+
+  const getInitials = (fullName: string | undefined) => {
+    if (!fullName) return "U";
+    const parts = fullName.trim().split(/\s+/);
+    if (parts.length >= 2) {
+      return (parts[0][0] + parts[1][0]).toUpperCase();
+    }
+    return parts[0].slice(0, 2).toUpperCase();
+  };
+
+  const getProfileImageUrl = (profilePicture: string | null) => {
+    if (!profilePicture) return undefined;
+    if (profilePicture.startsWith("http")) return profilePicture;
+    return `${BASE_URL}/${profilePicture}`;
+  };
 
   const handleLogout = () => {
     logout();
@@ -43,9 +68,9 @@ const Header = () => {
     return (
       <header className="bg-card border-b border-border shadow-sm">
         <div className="container mx-auto px-4 py-3 flex items-center justify-between">
-          <Button 
-            variant="outline" 
-            size="sm" 
+          <Button
+            variant="outline"
+            size="sm"
             className="text-primary border-primary hover:bg-primary hover:text-primary-foreground transition-all duration-300 hover:scale-105"
           >
             تواصل معنا
@@ -55,9 +80,9 @@ const Header = () => {
               <h1 className="text-lg font-bold text-primary">جامعة الغردقة</h1>
               <p className="text-xs text-muted-foreground">HURGHADA UNIVERSITY</p>
             </div>
-            <img 
-              src={universityLogo} 
-              alt="جامعة الغردقة" 
+            <img
+              src={universityLogo}
+              alt="جامعة الغردقة"
               className="w-14 h-14 rounded-full shadow-md hover:scale-110 transition-transform duration-300 hover:shadow-lg"
             />
           </div>
@@ -69,50 +94,48 @@ const Header = () => {
   return (
     <header className="bg-card/95 backdrop-blur-sm border-b border-border sticky top-0 z-50 shadow-sm">
       <div className="container mx-auto px-4 py-3 flex items-center justify-between">
-        <Link 
-          to="/" 
+        <Link
+          to="/"
           className="flex items-center gap-3 group"
         >
-          <img 
-            src={universityLogo} 
-            alt="غرد" 
+          <img
+            src={universityLogo}
+            alt="غرد"
             className="w-10 h-10 rounded-full shadow-md group-hover:scale-110 transition-all duration-300 group-hover:shadow-primary/30 group-hover:shadow-lg"
           />
           <span className="text-xl font-bold text-primary group-hover:text-primary/80 transition-colors hidden sm:block">
             غرد
           </span>
         </Link>
-        
+
         <nav className="hidden md:flex items-center gap-8">
           {[
             { path: "/contact", label: "اتصل بنا" },
             { path: "/services", label: "خدماتنا" },
             { path: "/", label: "الرئيسية" },
           ].map((item) => (
-            <Link 
+            <Link
               key={item.path}
-              to={item.path} 
-              className={`relative py-2 transition-all duration-300 hover:text-primary group ${
-                location.pathname === item.path 
-                  ? "text-primary font-medium" 
+              to={item.path}
+              className={`relative py-2 transition-all duration-300 hover:text-primary group ${location.pathname === item.path
+                  ? "text-primary font-medium"
                   : "text-foreground"
-              }`}
+                }`}
             >
               {item.label}
-              <span className={`absolute bottom-0 left-0 w-full h-0.5 bg-primary transform transition-transform duration-300 origin-right ${
-                location.pathname === item.path 
-                  ? "scale-x-100" 
+              <span className={`absolute bottom-0 left-0 w-full h-0.5 bg-primary transform transition-transform duration-300 origin-right ${location.pathname === item.path
+                  ? "scale-x-100"
                   : "scale-x-0 group-hover:scale-x-100 group-hover:origin-left"
-              }`} />
+                }`} />
             </Link>
           ))}
         </nav>
 
         <div className="flex items-center gap-4">
           <Link to="/notifications" className="relative group">
-            <Button 
-              variant="ghost" 
-              size="icon" 
+            <Button
+              variant="ghost"
+              size="icon"
               className="relative hover:bg-primary/10 transition-all duration-300"
             >
               <Bell className="w-5 h-5 group-hover:animate-wiggle" />
@@ -124,21 +147,24 @@ const Header = () => {
             </Button>
           </Link>
           <Link to="/profile" className="group">
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              className={`rounded-full w-10 h-10 transition-all duration-300 hover:scale-110 hover:shadow-lg ${
-                location.pathname === "/profile"
-                  ? "bg-primary text-primary-foreground ring-2 ring-primary/30"
-                  : "bg-foreground text-background hover:bg-primary hover:text-primary-foreground"
-              }`}
+            <Avatar
+              className={`w-10 h-10 transition-all duration-300 hover:scale-110 hover:shadow-lg cursor-pointer ${location.pathname === "/profile"
+                  ? "ring-2 ring-primary ring-offset-2"
+                  : ""
+                }`}
             >
-              <span className="font-bold">F</span>
-            </Button>
+              <AvatarImage
+                src={getProfileImageUrl(userProfile?.profile_picture ?? null)}
+                alt={userProfile?.full_name}
+              />
+              <AvatarFallback className="bg-primary text-primary-foreground font-bold">
+                {getInitials(userProfile?.full_name)}
+              </AvatarFallback>
+            </Avatar>
           </Link>
-          <Button 
-            variant="ghost" 
-            size="icon" 
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={() => setShowLogoutDialog(true)}
             className="hover:bg-destructive/10 hover:text-destructive transition-all duration-300"
             title="تسجيل الخروج"
