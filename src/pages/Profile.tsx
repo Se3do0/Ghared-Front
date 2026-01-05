@@ -98,9 +98,9 @@ const Profile = () => {
     try {
       const formDataToSend = new FormData();
 
-      if (formData.mobile_number !== profile?.mobile_number) {
-        formDataToSend.append("mobile_number", formData.mobile_number);
-      }
+      // Only send editable fields: mobile_number, profile_picture, password
+      formDataToSend.append("mobile_number", formData.mobile_number);
+      
       if (formData.password) {
         formDataToSend.append("password", formData.password);
       }
