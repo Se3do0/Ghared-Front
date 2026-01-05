@@ -90,6 +90,8 @@ export interface UserProfileData {
   email: string;
   mobile_number: string;
   profile_picture: string | null;
+  landline?: string;
+  fax_number?: string;
 }
 
 export interface UserProfileResponse {

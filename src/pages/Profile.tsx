@@ -21,6 +21,8 @@ const Profile = () => {
 
   const [formData, setFormData] = useState({
     mobile_number: "",
+    landline: "",
+    faxNumber: "",
     password: "",
     confirmPassword: "",
   });
@@ -43,6 +45,8 @@ const Profile = () => {
       setFormData((prev) => ({
         ...prev,
         mobile_number: data.mobile_number || "",
+        landline: (data as any).landline || "",
+        faxNumber: (data as any).fax_number || (data as any).faxNumber || "",
       }));
       if (data.profile_picture) {
         setPreviewUrl(getProfileImageUrl(data.profile_picture));
@@ -75,6 +79,8 @@ const Profile = () => {
       // Cancel edit - reset to original values
       setFormData({
         mobile_number: profile?.mobile_number || "",
+        landline: (profile as any)?.landline || "",
+        faxNumber: (profile as any)?.fax_number || (profile as any)?.faxNumber || "",
         password: "",
         confirmPassword: "",
       });
@@ -98,13 +104,19 @@ const Profile = () => {
     try {
       const formDataToSend = new FormData();
 
-      // Always append required fields with camelCase keys
+      // Server-required fields (even if read-only in UI)
       formDataToSend.append("fullName", profile?.full_name || "");
       formDataToSend.append("email", profile?.email || "");
+
+      // Editable fields
       formDataToSend.append("mobileNumber", formData.mobile_number);
+      formDataToSend.append("landline", formData.landline.trim() || "");
+      if (formData.faxNumber.trim()) {
+        formDataToSend.append("faxNumber", formData.faxNumber.trim());
+      }
 
       const trimmedPassword = formData.password.trim();
-      if (trimmedPassword) {
+      if (trimmedPassword && trimmedPassword.length >= 6) {
         formDataToSend.append("password", trimmedPassword);
       }
       if (selectedFile) {
@@ -181,13 +193,13 @@ const Profile = () => {
         <div className="max-w-3xl mx-auto">
           <Card className="border-border/50 shadow-xl overflow-hidden animate-fade-in">
             {/* Profile Header */}
-            <CardHeader className="bg-gradient-to-l from-teal-600 to-teal-700 text-white p-6">
+            <CardHeader className="bg-gradient-to-r from-[#0891b2] to-[#155e75] text-white p-6">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
                   <div className="relative">
                     <Avatar className="w-20 h-20 border-4 border-white/30 shadow-lg">
                       <AvatarImage src={previewUrl || undefined} alt={profile?.full_name} />
-                      <AvatarFallback className="bg-teal-800 text-white text-xl font-bold">
+                      <AvatarFallback className="bg-[#0e7490] text-white text-xl font-bold">
                         {getInitials(profile?.full_name || "")}
                       </AvatarFallback>
                     </Avatar>
@@ -197,7 +209,7 @@ const Profile = () => {
                         onClick={() => fileInputRef.current?.click()}
                         className="absolute bottom-0 right-0 bg-white rounded-full p-1.5 shadow-lg hover:bg-gray-100 transition-colors"
                       >
-                        <Camera className="w-4 h-4 text-teal-600" />
+                        <Camera className="w-4 h-4 text-[#0e7490]" />
                       </button>
                     )}
                   </div>
@@ -205,17 +217,14 @@ const Profile = () => {
                     <CardTitle className="text-2xl font-bold mb-1">
                       {profile?.full_name || "المستخدم"}
                     </CardTitle>
-                    <p className="text-teal-100 text-sm">{profile?.email}</p>
+                    <p className="text-cyan-100 text-sm">{profile?.email}</p>
                   </div>
                 </div>
                 <Button
                   type="button"
                   variant={isEditMode ? "secondary" : "outline"}
                   onClick={handleEditToggle}
-                  className={`gap-2 transition-all duration-300 ${isEditMode
-                    ? "bg-white/20 hover:bg-white/30 text-white border-white/30"
-                    : "bg-white/10 hover:bg-white/20 text-white border-white/30"
-                    }`}
+                  className={`gap-2 transition-all duration-300 bg-[#164e63] hover:bg-[#083344] text-white border border-cyan-400/30`}
                 >
                   {isEditMode ? (
                     <>
@@ -260,6 +269,7 @@ const Profile = () => {
                         <Input
                           value={profile?.full_name || ""}
                           disabled
+                          readOnly
                           className="pr-10 text-right bg-muted/50 cursor-not-allowed opacity-75"
                           dir="rtl"
                         />
@@ -277,6 +287,7 @@ const Profile = () => {
                           type="email"
                           value={profile?.email || ""}
                           disabled
+                          readOnly
                           className="pr-10 text-right bg-muted/50 cursor-not-allowed opacity-75"
                           dir="rtl"
                         />
@@ -311,6 +322,42 @@ const Profile = () => {
                         <Phone
                           className={`absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 transition-colors ${isEditMode ? "text-teal-500" : "text-muted-foreground/50"
                             }`}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Landline - Editable */}
+                    <div className="space-y-2">
+                      <Label className="text-right block font-medium">الهاتف الأرضي</Label>
+                      <div className="relative group">
+                        <Input
+                          placeholder="ادخل الهاتف الأرضي"
+                          value={formData.landline}
+                          onChange={(e) => handleChange("landline", e.target.value)}
+                          disabled={!isEditMode}
+                          className={`pr-10 text-right transition-all duration-300 ${isEditMode
+                            ? "border-teal-500/50 focus:border-teal-500 focus:ring-teal-500/20"
+                            : "bg-muted/30"
+                            }`}
+                          dir="rtl"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Fax Number - Editable */}
+                    <div className="space-y-2">
+                      <Label className="text-right block font-medium">الفاكس</Label>
+                      <div className="relative group">
+                        <Input
+                          placeholder="ادخل رقم الفاكس"
+                          value={formData.faxNumber}
+                          onChange={(e) => handleChange("faxNumber", e.target.value)}
+                          disabled={!isEditMode}
+                          className={`pr-10 text-right transition-all duration-300 ${isEditMode
+                            ? "border-teal-500/50 focus:border-teal-500 focus:ring-teal-500/20"
+                            : "bg-muted/30"
+                            }`}
+                          dir="rtl"
                         />
                       </div>
                     </div>
