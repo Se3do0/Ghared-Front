@@ -107,7 +107,7 @@ const Profile = () => {
         formDataToSend.append("password", formData.password);
       }
       if (selectedFile) {
-        formDataToSend.append("profile_picture", selectedFile);
+        formDataToSend.append("profilePicture", selectedFile);
       }
 
       await updateUserProfile(formDataToSend);
