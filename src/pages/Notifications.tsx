@@ -50,18 +50,20 @@ const Notifications = () => {
   return (
     <div className="min-h-screen bg-background">
       <Header />
-      
+
       <main className="container mx-auto px-4 py-8">
         <div className="max-w-4xl mx-auto page-container animate-fade-in">
           <div className="flex items-center justify-between mb-8">
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={handleRefresh} 
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleRefresh}
               className="gap-2 hover:border-primary hover:text-primary transition-all duration-300"
               disabled={isRefetching}
             >
-              <RefreshCw className={`w-4 h-4 ${isRefetching ? 'animate-spin' : ''}`} />
+              <RefreshCw
+                className={`w-4 h-4 ${isRefetching ? "animate-spin" : ""}`}
+              />
               تحديث
             </Button>
             <h1 className="text-2xl font-bold gradient-text">الإشعارات</h1>
@@ -87,7 +89,9 @@ const Notifications = () => {
                     preview={notification.messageSnippet}
                     date={notification.date.split("T")[0]}
                     isRead={notification.is_read}
-                    onMarkAsRead={() => handleMarkAsRead(notification.notification_id)}
+                    onMarkAsRead={() =>
+                      handleMarkAsRead(notification.notification_id)
+                    }
                   />
                 </div>
               ))}
