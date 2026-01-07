@@ -85,6 +85,22 @@ export interface Notification {
   is_read: boolean;
 }
 
+export interface UserProfileData {
+  full_name: string;
+  email: string;
+  mobile_number: string;
+  profile_picture: string | null;
+  landline?: string;
+  fax_number?: string;
+}
+
+export interface UserProfileResponse {
+  status: string;
+  data: {
+    user: UserProfileData;
+  };
+}
+
 export interface ApiResponse<T> {
   status: string;
   data: T;
