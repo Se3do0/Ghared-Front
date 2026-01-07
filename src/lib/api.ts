@@ -18,6 +18,7 @@ export interface LoginResponse {
 }
 
 export interface InboxTransaction {
+  content: string;
   transaction_id: number;
   code: string;
   subject: string;
