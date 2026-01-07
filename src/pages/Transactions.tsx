@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Search, X } from "lucide-react";
+import { Search, X, Edit } from "lucide-react";
 import Header from "@/components/layout/Header";
 import TransactionsSidebar from "@/components/layout/TransactionsSidebar";
 import TransactionList from "@/components/transactions/TransactionList";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { useInbox, useSent, useDrafts, useDeleted } from "@/hooks/useTransactions";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/contexts/AuthContext";
@@ -156,8 +157,43 @@ const Transactions = () => {
               <div className="py-12 text-center text-destructive">
                 حدث خطأ في تحميل البيانات
               </div>
+            ) : type === "drafts" ? (
+              <div className="divide-y divide-border">
+                {filteredTransactions.map((transaction, index) => (
+                  <div
+                    key={transaction.id}
+                    className="flex items-center justify-between py-4 px-2 hover:bg-muted/50 transition-colors rounded-lg group animate-fade-in"
+                    style={{ animationDelay: `${index * 50}ms` }}
+                  >
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => navigate(`/transactions/create?draftId=${transaction.id}`)}
+                      className="gap-2 text-primary hover:bg-primary/10"
+                    >
+                      <Edit className="w-4 h-4" />
+                      تحرير
+                    </Button>
+
+                    <div className="flex-1 text-right">
+                      <div className="flex items-center justify-end gap-3">
+                        <span className="text-muted-foreground text-sm">{transaction.subject}</span>
+                        <span className="font-medium text-foreground">{transaction.sender}</span>
+                      </div>
+                      <p className="text-sm text-muted-foreground mt-1">{transaction.subjectPreview}</p>
+                      <p className="text-xs text-muted-foreground mt-1">{transaction.date}</p>
+                    </div>
+                  </div>
+                ))}
+
+                {filteredTransactions.length === 0 && (
+                  <div className="py-12 text-center text-muted-foreground">
+                    لا توجد مسودات
+                  </div>
+                )}
+              </div>
             ) : (
-              <TransactionList 
+              <TransactionList
                 transactions={filteredTransactions}
                 basePath={`/transactions/${type}`}
               />
