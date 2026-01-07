@@ -9,18 +9,20 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
-import { useFormData, useSent, useDrafts } from "@/hooks/useTransactions";
-import { createTransaction, saveDraft } from "@/lib/api";
+import { useFormData, useSent } from "@/hooks/useTransactions";
+import { createTransaction } from "@/lib/api";
 
 interface Attachment {
   id: string;
@@ -31,12 +33,11 @@ interface Attachment {
 
 const CreateTransaction = () => {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+
   const { user, isLoading: authLoading } = useAuth();
   const { data: formData, isLoading: formLoading } = useFormData();
   const { data: historyTransactions, isLoading: historyLoading } = useSent();
-  const { data: draftsData, refetch: refetchDrafts } = useDrafts();
-
+  
   const [activeTab, setActiveTab] = useState("main");
   const [subject, setSubject] = useState("");
   const [content, setContent] = useState("");
@@ -47,41 +48,15 @@ const CreateTransaction = () => {
   const [selectedReceivers, setSelectedReceivers] = useState<number[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [parentTransactionId, setParentTransactionId] = useState<number | null>(null);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [departmentFilter, setDepartmentFilter] = useState<string>("all");
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
-  const receivers = formData?.receivers || [];
-  const types = formData?.types || [];
+  const [expandedDepts, setExpandedDepts] = useState<number[]>([]);
 
-  // --- استخراج الأقسام بشكل ديناميكي من الـ API ---
-  const departments = useMemo(() => {
-    const deptsMap = new Map();
-    receivers.forEach((deptGroup) => {
-      deptGroup.employees.forEach((emp) => {
-        if (!deptsMap.has(emp.department_id)) {
-          deptsMap.set(emp.department_id, emp.department_name);
-        }
-      });
-    });
-    return Array.from(deptsMap.entries()).map(([id, name]) => ({ id, name }));
-  }, [receivers]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // --- منطق الفلترة المشترك (بحث + قسم) ---
-  const filteredEmployees = useMemo(() => {
-    return receivers.flatMap(dept => dept.employees).filter((emp) => {
-      const matchesSearch =
-        emp.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        emp.user_id.toString().includes(searchQuery);
-
-      const matchesDept =
-        departmentFilter === "all" || emp.department_id.toString() === departmentFilter;
-
-      return matchesSearch && matchesDept;
-    });
-  }, [receivers, searchQuery, departmentFilter]);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -121,18 +96,7 @@ const CreateTransaction = () => {
     toast.success("تم حذف المرفق");
   };
 
-  useEffect(() => {
-    const draftId = searchParams.get("draftId");
-    if (draftId && draftsData) {
-      const draft = draftsData.find((d: any) => d.transaction_id === Number(draftId));
-      if (draft) {
-        setSubject(draft.subject || "");
-        setContent(draft.content || "");
-        toast.success("تم تحميل المسودة بنجاح");
-      }
-    }
-  }, [searchParams, draftsData]);
-
+  // Reset parent transaction when switching to "new"
   useEffect(() => {
     if (transactionNature === "new") {
       setParentTransactionId(null);
@@ -140,7 +104,7 @@ const CreateTransaction = () => {
   }, [transactionNature]);
 
   const toggleReceiver = (userId: number) => {
-    setSelectedReceivers(prev =>
+    setSelectedReceivers(prev => 
       prev.includes(userId)
         ? prev.filter(id => id !== userId)
         : [...prev, userId]
@@ -148,40 +112,9 @@ const CreateTransaction = () => {
   };
 
   const handleSaveDraft = async () => {
-    if (!subject.trim()) {
-      toast.error("يرجى إدخال موضوع المعاملة");
-      return;
-    }
+    toast.success("تم حفظ المعاملة كمسودة");
 
-    setIsSubmitting(true);
-    try {
-      const formDataToSend = new FormData();
-      formDataToSend.append("subject", subject);
-      formDataToSend.append("content", content);
-      formDataToSend.append("type_id", selectedTypeId?.toString() || "1");
-      formDataToSend.append("is_draft", "true");
-
-      if (parentTransactionId) {
-        formDataToSend.append("parent_transaction_id", parentTransactionId.toString());
-      }
-
-      if (selectedReceivers.length > 0) {
-        formDataToSend.append("receivers", selectedReceivers.join(","));
-      }
-
-      attachments.forEach((attachment) => {
-        formDataToSend.append("attachments", attachment.file);
-      });
-
-      const result = await saveDraft(formDataToSend);
-      toast.success(result.message || "تم حفظ المعاملة كمسودة بنجاح");
-      await refetchDrafts();
-      navigate("/transactions/drafts");
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "فشل في حفظ المسودة");
-    } finally {
-      setIsSubmitting(false);
-    }
+    navigate("/transactions/drafts");
   };
 
   const handleSubmit = async () => {
@@ -199,13 +132,16 @@ const CreateTransaction = () => {
     }
 
     setIsSubmitting(true);
+
     try {
       const formDataToSend = new FormData();
       formDataToSend.append("subject", subject);
       formDataToSend.append("content", content);
       formDataToSend.append("type_id", selectedTypeId.toString());
-      formDataToSend.append("is_draft", "false");
 
+      formDataToSend.append("is_draft", "false");
+      
+      // Add parent transaction ID if this is a reply/rectification
       if (parentTransactionId) {
         formDataToSend.append("parent_transaction_id", parentTransactionId.toString());
       }
@@ -221,6 +157,7 @@ const CreateTransaction = () => {
       });
 
       const result = await createTransaction(formDataToSend);
+
       toast.success(result.message || "تم إرسال المعاملة بنجاح");
       navigate("/transactions/outgoing");
     } catch (error) {
@@ -242,6 +179,12 @@ const CreateTransaction = () => {
     navigate("/login");
     return null;
   }
+
+  // Get data directly as returned from API (Departments containing Employees)
+
+  const receivers = formData?.receivers || [];
+
+  const types = formData?.types || [];
 
   return (
     <div className="min-h-screen bg-background">
@@ -295,10 +238,11 @@ const CreateTransaction = () => {
                 </RadioGroup>
               </div>
 
+              {/* History Transaction Selection - shown when "استدراك" is selected */}
               {transactionNature === "reply" && (
                 <div className="space-y-4 border border-border rounded-xl p-4 bg-muted/30">
                   <Label className="text-right block font-medium">الرجاء اختيار المعاملة المراد استدراكها</Label>
-
+                  
                   {historyLoading ? (
                     <div className="flex items-center justify-center py-8">
                       <Loader2 className="w-6 h-6 animate-spin text-primary" />
@@ -310,10 +254,11 @@ const CreateTransaction = () => {
                         <label
                           key={transaction.transaction_id}
                           htmlFor={`reply-${transaction.transaction_id}`}
-                          className={`block border rounded-lg p-4 cursor-pointer transition-all duration-200 ${parentTransactionId === transaction.transaction_id
-                            ? 'border-primary bg-primary/5 shadow-sm'
-                            : 'border-border hover:border-primary/50 bg-background'
-                            }`}
+                          className={`block border rounded-lg p-4 cursor-pointer transition-all duration-200 ${
+                            parentTransactionId === transaction.transaction_id
+                              ? 'border-primary bg-primary/5 shadow-sm'
+                              : 'border-border hover:border-primary/50 bg-background'
+                          }`}
                         >
                           <div className="flex items-center justify-between">
                             <span className="badge bg-muted text-muted-foreground text-xs px-2 py-1 rounded-full border border-border">
@@ -354,6 +299,7 @@ const CreateTransaction = () => {
 
               <div className="space-y-4">
                 <Label className="text-right block">نوع المعاملة</Label>
+
                 <RadioGroup
                   value={selectedTypeId?.toString() || ""}
                   onValueChange={(val) => setSelectedTypeId(Number(val))}
@@ -402,13 +348,17 @@ const CreateTransaction = () => {
                       onChange={handleFileSelect}
                       className="hidden"
                     />
+
                     <Button
                       variant="outline"
                       className="w-full gap-2"
                       onClick={() => fileInputRef.current?.click()}
                     >
                       <Upload className="w-4 h-4" />
-                      {selectedFile ? selectedFile.name.slice(0, 15) + "..." : "إرفاق ملف"}
+
+                      {selectedFile
+                        ? selectedFile.name.slice(0, 15) + "..."
+                        : "Choose File"}
                     </Button>
                   </div>
                 </div>
@@ -465,76 +415,84 @@ const CreateTransaction = () => {
             </TabsContent>
 
             <TabsContent value="send" className="space-y-6">
-              <h3 className="font-bold text-right text-lg">تحديد الجهات المرسل إليها</h3>
+              <h3 className="font-bold text-right text-lg">
+                تحديد الجهات المرسل إليها
+              </h3>
 
-              <div className="space-y-4 border border-border rounded-xl p-4 bg-muted/20">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {/* شريط البحث */}
-                  <div className="relative">
-                    <Search className="absolute right-3 top-3 w-4 h-4 text-muted-foreground" />
-                    <Input
-                      placeholder="ابحث برقم أو اسم الموظف..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="pl-4 pr-10 text-right"
-                      dir="rtl"
-                    />
-                  </div>
+              <div className="space-y-4">
+                {receivers.map((dept: any) => {
+                  const isExpanded = expandedDepts.includes(dept.department_id);
 
-                  {/* فلتر الأقسام الديناميكي */}
-                  <Select value={departmentFilter} onValueChange={setDepartmentFilter}>
-                    <SelectTrigger className="text-right bg-background">
-                      <div className="flex items-center gap-2">
-                        <Filter className="w-4 h-4 text-primary" />
-                        <SelectValue placeholder="اختر الإدارة" />
-                      </div>
-                    </SelectTrigger>
-                    <SelectContent dir="rtl">
-                      <SelectItem value="all">كل الإدارات</SelectItem>
-                      {departments.map((dept) => (
-                        <SelectItem key={dept.id} value={dept.id.toString()}>
-                          {dept.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+                  const selectedCountInDept = dept.employees
+                    ? dept.employees.filter((emp: any) =>
+                        selectedReceivers.includes(emp.user_id)
+                      ).length
+                    : 0;
 
-                {selectedReceivers.length > 0 && (
-                  <div className="flex items-center justify-between p-3 bg-primary/10 rounded-lg border border-primary/30">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setSelectedReceivers([])}
-                      className="gap-2 text-primary hover:bg-primary/20"
+                  const isAllSelected =
+                    dept.employees &&
+                    dept.employees.length > 0 &&
+                    dept.employees.every((emp: any) =>
+                      selectedReceivers.includes(emp.user_id)
+                    );
+
+                  return (
+                    <div
+                      key={dept.department_id}
+                      className="border border-border rounded-xl overflow-hidden bg-background"
                     >
-                      <X className="w-4 h-4" />
-                      مسح التحديد
-                    </Button>
-                    <span className="text-sm font-medium">
-                      تم تحديد {selectedReceivers.length} موظف
-                    </span>
-                  </div>
-                )}
-              </div>
+                      {/* Department Header */}
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {filteredEmployees.map((receiver) => (
-                  <div
-                    key={receiver.user_id}
-                    className={`border rounded-xl p-4 text-right cursor-pointer transition-all duration-200 ${selectedReceivers.includes(receiver.user_id)
-                      ? 'border-primary bg-primary/5 shadow-md'
-                      : 'border-border hover:border-primary/50'
-                      }`}
-                    onClick={() => toggleReceiver(receiver.user_id)}
-                  >
-                    <div className="flex items-start justify-end gap-3">
-                      <div>
-                        <p className="font-medium">{receiver.full_name}</p>
-                        <p className="text-sm text-primary">{receiver.department_name}</p>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          #{receiver.user_id}
-                        </p>
+                      <div
+                        onClick={() => toggleDept(dept.department_id)}
+                        className={`p-4 flex items-center justify-between cursor-pointer transition-colors ${
+                          isExpanded ? "bg-muted/50" : "hover:bg-muted/30"
+                        }`}
+                      >
+                        <div className="flex items-center gap-4">
+                          <div className="text-muted-foreground">
+                            {isExpanded ? (
+                              <ChevronUp className="w-5 h-5" />
+                            ) : (
+                              <ChevronDown className="w-5 h-5" />
+                            )}
+                          </div>
+
+                          {/* زرار اختيار الكل */}
+
+                          <Button
+                            size="sm"
+                            variant={isAllSelected ? "default" : "outline"}
+                            className={`h-8 gap-2 ${
+                              isAllSelected
+                                ? "bg-primary text-primary-foreground"
+                                : "text-muted-foreground"
+                            }`}
+                            onClick={(e) => toggleDepartmentSelection(dept, e)}
+                          >
+                            {isAllSelected ? (
+                              <CheckSquare className="w-4 h-4" />
+                            ) : (
+                              <Square className="w-4 h-4" />
+                            )}
+
+                            <span className="text-xs">
+                              {isAllSelected ? "إلغاء الكل" : "تحديد الكل"}
+                            </span>
+                          </Button>
+                        </div>
+
+                        <div className="text-right">
+                          <h4 className="font-bold text-lg">
+                            {dept.department_name}
+                          </h4>
+
+                          {selectedCountInDept > 0 && (
+                            <span className="text-xs text-primary font-medium">
+                              تم اختيار {selectedCountInDept} موظف
+                            </span>
+                          )}
+                        </div>
                       </div>
                       <Checkbox
                         checked={selectedReceivers.includes(receiver.user_id)}
@@ -544,12 +502,6 @@ const CreateTransaction = () => {
                   </div>
                 ))}
               </div>
-
-              {filteredEmployees.length === 0 && (
-                <div className="text-center py-8 text-muted-foreground">
-                  لم يتم العثور على موظفين يطابقون البحث
-                </div>
-              )}
 
               <div className="flex gap-4 justify-start pt-8">
                 <Button onClick={handleSubmit} disabled={isSubmitting} className="gap-2">

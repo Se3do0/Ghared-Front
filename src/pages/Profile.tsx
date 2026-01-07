@@ -1,30 +1,26 @@
-import { useState, useEffect, useRef } from "react";
-import { User, Phone, Mail, Lock, Camera, Edit3, Save, Loader2, X, Upload } from "lucide-react";
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { User, Phone, Mail, Image, Save, Loader2 } from "lucide-react";
 import Header from "@/components/layout/Header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
-import { fetchUserProfile, updateUserProfile, UserProfileData, BASE_URL } from "@/lib/api";
+import { updateProfile } from "@/lib/api";
 
 const Profile = () => {
-  const [isLoading, setIsLoading] = useState(true);
+  const navigate = useNavigate();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isEditMode, setIsEditMode] = useState(false);
-  const [profile, setProfile] = useState<UserProfileData | null>(null);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
   const [formData, setFormData] = useState({
     mobile_number: "",
     landline: "",
     faxNumber: "",
     password: "",
     confirmPassword: "",
+    email: "",
+    mobileNumber: "",
+    landline: "",
+    fax: "",
   });
 
   const getProfileImageUrl = (profilePicture: string | null | undefined) => {
@@ -92,15 +88,14 @@ const Profile = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    // Validate passwords match
+    
     if (formData.password && formData.password !== formData.confirmPassword) {
       toast.error("كلمة المرور غير متطابقة");
       return;
     }
 
     setIsSubmitting(true);
-
+    
     try {
       const formDataToSend = new FormData();
 
@@ -138,57 +133,16 @@ const Profile = () => {
       setSelectedFile(null);
       setIsEditMode(false);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "حدث خطأ في تحديث البيانات");
+      toast.error(error instanceof Error ? error.message : "حدث خطأ في الاتصال بالخادم");
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const getInitials = (name: string) => {
-    if (!name) return "U";
-    return name
-      .split(" ")
-      .map((word) => word[0])
-      .join("")
-      .slice(0, 2)
-      .toUpperCase();
-  };
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-background" dir="rtl">
-        <Header />
-        <main className="container mx-auto px-4 py-8">
-          <div className="max-w-3xl mx-auto">
-            <Card className="border-border/50 shadow-xl">
-              <CardHeader className="bg-gradient-to-l from-teal-600 to-teal-700 text-white rounded-t-lg">
-                <div className="flex items-center gap-4">
-                  <Skeleton className="w-20 h-20 rounded-full bg-white/20" />
-                  <div className="space-y-2">
-                    <Skeleton className="h-6 w-48 bg-white/20" />
-                    <Skeleton className="h-4 w-32 bg-white/20" />
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent className="p-8 space-y-6">
-                {[1, 2, 3, 4, 5].map((i) => (
-                  <div key={i} className="space-y-2">
-                    <Skeleton className="h-4 w-24" />
-                    <Skeleton className="h-10 w-full" />
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-          </div>
-        </main>
-      </div>
-    );
-  }
-
   return (
-    <div className="min-h-screen bg-background font-cairo" dir="rtl">
+    <div className="min-h-screen bg-background">
       <Header />
-
+      
       <main className="container mx-auto px-4 py-8">
         <div className="max-w-3xl mx-auto">
           <Card className="border-border/50 shadow-xl overflow-hidden animate-fade-in">
@@ -241,23 +195,18 @@ const Profile = () => {
               </div>
             </CardHeader>
 
-            {/* Form Content */}
-            <CardContent className="p-8">
-              <form onSubmit={handleSubmit} className="space-y-6">
-                {/* Hidden File Input */}
-                <input
-                  type="file"
-                  ref={fileInputRef}
-                  onChange={handleFileChange}
-                  accept="image/*"
-                  className="hidden"
-                />
-
-                {/* Read-Only Section */}
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold text-foreground border-b border-border pb-2 mb-4">
-                    البيانات الأساسية
-                  </h3>
+                {/* Password */}
+                <div className="space-y-2 animate-fade-in" style={{ animationDelay: '0.15s' }}>
+                  <Label className="text-right block font-medium">كلمة المرور</Label>
+                  <Input
+                    type="password"
+                    placeholder="ادخل كلمة المرور"
+                    value={formData.password}
+                    onChange={(e) => handleChange('password', e.target.value)}
+                    className="text-right input-focus"
+                    dir="rtl"
+                  />
+                </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     {/* Full Name - Always Read-Only */}
@@ -387,88 +336,70 @@ const Profile = () => {
                       </div>
                     </div>
 
-                    {/* New Password - Editable */}
-                    <div className="space-y-2">
-                      <Label className="text-right block font-medium">كلمة المرور الجديدة</Label>
-                      <div className="relative group">
-                        <Input
-                          type="password"
-                          placeholder="ادخل كلمة المرور الجديدة"
-                          value={formData.password}
-                          onChange={(e) => handleChange("password", e.target.value)}
-                          disabled={!isEditMode}
-                          className={`pr-10 text-right transition-all duration-300 ${isEditMode
-                            ? "border-teal-500/50 focus:border-teal-500 focus:ring-teal-500/20"
-                            : "bg-muted/30"
-                            }`}
-                          dir="rtl"
-                        />
-                        <Lock
-                          className={`absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 transition-colors ${isEditMode ? "text-teal-500" : "text-muted-foreground/50"
-                            }`}
-                        />
-                      </div>
-                    </div>
-
-                    {/* Confirm Password - Editable */}
-                    <div className="space-y-2">
-                      <Label className="text-right block font-medium">تأكيد كلمة المرور</Label>
-                      <div className="relative group">
-                        <Input
-                          type="password"
-                          placeholder="أعد إدخال كلمة المرور"
-                          value={formData.confirmPassword}
-                          onChange={(e) => handleChange("confirmPassword", e.target.value)}
-                          disabled={!isEditMode}
-                          className={`pr-10 text-right transition-all duration-300 ${isEditMode
-                            ? "border-teal-500/50 focus:border-teal-500 focus:ring-teal-500/20"
-                            : "bg-muted/30"
-                            }`}
-                          dir="rtl"
-                        />
-                        <Lock
-                          className={`absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 transition-colors ${isEditMode ? "text-teal-500" : "text-muted-foreground/50"
-                            }`}
-                        />
-                      </div>
-                      {formData.password &&
-                        formData.confirmPassword &&
-                        formData.password !== formData.confirmPassword && (
-                          <p className="text-destructive text-sm mt-1">كلمة المرور غير متطابقة</p>
-                        )}
-                    </div>
-                  </div>
+                {/* Landline */}
+                <div className="space-y-2 animate-fade-in" style={{ animationDelay: '0.35s' }}>
+                  <Label className="text-right block font-medium">
+                    الرقم الأرضي <span className="text-muted-foreground text-sm">(إختياري)</span>
+                  </Label>
+                  <Input
+                    placeholder="ادخل الرقم الأرضي"
+                    value={formData.landline}
+                    onChange={(e) => handleChange('landline', e.target.value)}
+                    className="text-right input-focus"
+                    dir="rtl"
+                  />
                 </div>
 
-                {/* Submit Button - Only visible in edit mode */}
-                {isEditMode && (
-                  <div className="flex justify-center pt-6 animate-fade-in">
-                    <Button
-                      type="submit"
-                      size="lg"
-                      disabled={
-                        isSubmitting ||
-                        (formData.password !== formData.confirmPassword && formData.password !== "")
-                      }
-                      className="px-12 gap-2 bg-gradient-to-l from-teal-600 to-teal-700 hover:from-teal-700 hover:to-teal-800 shadow-lg hover:shadow-xl transition-all duration-300 text-white"
+                {/* Fax */}
+                <div className="space-y-2 animate-fade-in" style={{ animationDelay: '0.4s' }}>
+                  <Label className="text-right block font-medium">
+                    رقم الفاكس <span className="text-muted-foreground text-sm">(إختياري)</span>
+                  </Label>
+                  <Input
+                    placeholder="ادخل رقم الفاكس"
+                    value={formData.fax}
+                    onChange={(e) => handleChange('fax', e.target.value)}
+                    className="text-right input-focus"
+                    dir="rtl"
+                  />
+                </div>
+
+                {/* Profile Picture */}
+                <div className="space-y-2 animate-fade-in" style={{ animationDelay: '0.45s' }}>
+                  <Label className="text-right block font-medium">
+                    الصورة الشخصية <span className="text-muted-foreground text-sm">(إختياري)</span>
+                  </Label>
+                  <div className="relative">
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      className="w-full justify-between text-right hover:border-primary hover:bg-primary/5 transition-all duration-300"
                     >
-                      {isSubmitting ? (
-                        <>
-                          <Loader2 className="w-5 h-5 animate-spin" />
-                          جاري التحديث...
-                        </>
-                      ) : (
-                        <>
-                          <Save className="w-5 h-5" />
-                          حفظ التغييرات
-                        </>
-                      )}
+                      <span className="text-muted-foreground">Choose File</span>
+                      <Image className="w-5 h-5 text-primary/60" />
                     </Button>
                   </div>
-                )}
-              </form>
-            </CardContent>
-          </Card>
+                </div>
+              </div>
+
+              {/* Submit Button */}
+              <div className="flex justify-center mt-10 animate-fade-in" style={{ animationDelay: '0.5s' }}>
+                <Button 
+                  type="submit" 
+                  size="lg"
+                  disabled={isSubmitting}
+                  className="px-12 gap-2 btn-glow bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105"
+                >
+                  {isSubmitting ? (
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                  ) : (
+                    <Save className="w-5 h-5" />
+                  )}
+                  {isSubmitting ? "جاري التحديث..." : "تحديث البيانات الشخصية"}
+                </Button>
+              </div>
+            </form>
+          </div>
         </div>
       </main>
     </div>
