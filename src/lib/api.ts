@@ -1,4 +1,5 @@
 export const BASE_URL = "https://ghared-project-1lb7.onrender.com";
+export const API_BASE_URL = "https://ghared-project-1lb7.onrender.com/api";
 
 // ================= Types =================
 export interface User {
@@ -241,7 +242,7 @@ export const fetchDrafts = async (): Promise<InboxTransaction[]> => {
   const token = getToken();
   if (!token) throw new Error("غير مسجل الدخول");
 
-  const response = await fetch(`${BASE_URL}/api/transactions/draft`, {
+  const response = await fetch(`${BASE_URL}/api/drafts`, {
     headers: authHeaders(),
   });
 

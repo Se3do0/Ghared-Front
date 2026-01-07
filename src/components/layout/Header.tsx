@@ -9,8 +9,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import axios from "axios";
 import { io } from "socket.io-client";
 import { toast } from "sonner"; // 2. استيراد التوستر
-import { useState } from "react";
-import { fetchNotifications, fetchUserProfile, BASE_URL, UserProfileData } from "@/lib/api";
+import { fetchNotifications, fetchUserProfile, BASE_URL, API_BASE_URL, UserProfileData } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   AlertDialog,
@@ -88,7 +87,7 @@ const Header = () => {
     const token = localStorage.getItem("token");
     if (!token) return;
 
-    const socket = io(SOCKET_URL, {
+    const socket = io(BASE_URL, {
       auth: { token },
       transports: ["websocket", "polling"],
     });
