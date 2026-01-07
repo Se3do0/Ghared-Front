@@ -91,8 +91,6 @@ export interface UserProfileData {
   email: string;
   mobile_number: string;
   profile_picture: string | null;
-  landline?: string;
-  fax_number?: string;
 }
 
 export interface UserProfileResponse {
@@ -403,4 +401,32 @@ export const markNotificationRead = async (notificationId: number): Promise<void
     method: "PUT",
     headers: authHeaders(),
   });
+};
+
+export const performTransactionAction = async (
+  transactionId: string,
+  actionName: string,
+  annotation: string
+): Promise<ApiResponse<unknown>> => {
+  const token = getToken();
+  if (!token) throw new Error("غير مسجل الدخول");
+
+  const response = await fetch(`${BASE_URL}/api/transactions/${transactionId}/actions`, {
+    method: "POST",
+    headers: authHeaders(),
+    body: JSON.stringify({ action_name: actionName, annotation }),
+  });
+
+  if (response.status === 401) {
+    clearAuth();
+    throw new Error("انتهت صلاحية الجلسة");
+  }
+
+  const result = await response.json();
+
+  if (!response.ok) {
+    throw new Error(result.message || "فشل في تنفيذ الإجراء");
+  }
+
+  return result;
 };

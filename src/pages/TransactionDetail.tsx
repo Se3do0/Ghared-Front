@@ -1,12 +1,23 @@
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowRight, Reply, Loader2, FileText, Download, Eye } from "lucide-react";
+import { ArrowRight, Reply, Loader2, FileText, Download, Eye, Check, X } from "lucide-react";
 import Header from "@/components/layout/Header";
 import TransactionsSidebar from "@/components/layout/TransactionsSidebar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useTransactionDetails, useTransactionAttachment } from "@/hooks/useTransactions";
 import { useAuth } from "@/contexts/AuthContext";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import { performTransactionAction } from "@/lib/api";
+import { toast } from "sonner";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 
 const { openAttachment } = useTransactionAttachment();
 
@@ -14,7 +25,35 @@ const TransactionDetail = () => {
   const { id, type } = useParams();
   const navigate = useNavigate();
   const { isAuthenticated, isLoading: authLoading } = useAuth();
-  const { data, isLoading, error } = useTransactionDetails(id || "");
+  const { data, isLoading, error, refetch } = useTransactionDetails(id || "");
+  
+  const [actionDialogOpen, setActionDialogOpen] = useState(false);
+  const [currentAction, setCurrentAction] = useState<"accept" | "reject" | null>(null);
+  const [annotation, setAnnotation] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleActionClick = (action: "accept" | "reject") => {
+    setCurrentAction(action);
+    setAnnotation("");
+    setActionDialogOpen(true);
+  };
+
+  const handleSubmitAction = async () => {
+    if (!id || !currentAction) return;
+    
+    setIsSubmitting(true);
+    try {
+      const actionName = currentAction === "accept" ? "موافقة" : "رفض";
+      await performTransactionAction(id, actionName, annotation);
+      toast.success("تم تنفيذ الإجراء بنجاح");
+      setActionDialogOpen(false);
+      refetch();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "حدث خطأ");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -193,7 +232,7 @@ const TransactionDetail = () => {
                 </div>
               )}
 
-              <div className="border-t border-border pt-6 flex gap-4 justify-start">
+              <div className="border-t border-border pt-6 flex gap-4 justify-start flex-wrap">
                 <Button variant="outline" onClick={() => navigate(-1)} className="gap-2">
                   <ArrowRight className="w-4 h-4" />
                   رجوع
@@ -202,11 +241,79 @@ const TransactionDetail = () => {
                   <Reply className="w-4 h-4" />
                   رد على المعاملة
                 </Button>
+                <Button
+                  variant="default"
+                  className="gap-2 bg-green-600 hover:bg-green-700"
+                  onClick={() => handleActionClick("accept")}
+                >
+                  <Check className="w-4 h-4" />
+                  موافقة
+                </Button>
+                <Button
+                  variant="destructive"
+                  className="gap-2"
+                  onClick={() => handleActionClick("reject")}
+                >
+                  <X className="w-4 h-4" />
+                  رفض
+                </Button>
               </div>
             </div>
           </div>
         </div>
       </main>
+
+      {/* Action Dialog */}
+      <Dialog open={actionDialogOpen} onOpenChange={setActionDialogOpen}>
+        <DialogContent className="sm:max-w-md" dir="rtl">
+          <DialogHeader>
+            <DialogTitle className="text-right">
+              {currentAction === "accept" ? "تأكيد الموافقة" : "تأكيد الرفض"}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="annotation" className="text-right block">
+                الملاحظات
+              </Label>
+              <Textarea
+                id="annotation"
+                value={annotation}
+                onChange={(e) => setAnnotation(e.target.value)}
+                placeholder={
+                  currentAction === "accept"
+                    ? "مثال: تمت المراجعة وكل شيء سليم"
+                    : "مثال: يوجد نقص في المرفقات"
+                }
+                className="text-right min-h-[100px]"
+              />
+            </div>
+          </div>
+          <DialogFooter className="flex gap-2 sm:justify-start">
+            <Button
+              variant="outline"
+              onClick={() => setActionDialogOpen(false)}
+              disabled={isSubmitting}
+            >
+              إلغاء
+            </Button>
+            <Button
+              onClick={handleSubmitAction}
+              disabled={isSubmitting || !annotation.trim()}
+              className={currentAction === "accept" ? "bg-green-600 hover:bg-green-700" : ""}
+              variant={currentAction === "reject" ? "destructive" : "default"}
+            >
+              {isSubmitting ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : currentAction === "accept" ? (
+                "تأكيد الموافقة"
+              ) : (
+                "تأكيد الرفض"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
