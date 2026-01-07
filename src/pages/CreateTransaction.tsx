@@ -1,13 +1,22 @@
-import { useState, useRef, useEffect, useMemo } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
-import { Send, Save, Plus, Trash2, Upload, Loader2, FileText, Calendar, Search, X, Filter } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
+
+import { useNavigate } from "react-router-dom";
+import { Send, Save, Plus, Trash2, Upload, Loader2, FileText, Calendar, ChevronDown, ChevronUp, CheckSquare, Square } from "lucide-react";
+
 import Header from "@/components/layout/Header";
+
 import { Button } from "@/components/ui/button";
+
 import { Input } from "@/components/ui/input";
+
 import { Textarea } from "@/components/ui/textarea";
+
 import { Label } from "@/components/ui/label";
+
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+
 import { Checkbox } from "@/components/ui/checkbox";
+
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 import {
@@ -20,14 +29,18 @@ import {
 } from "@/components/ui/table";
 
 import { toast } from "sonner";
+
 import { useAuth } from "@/contexts/AuthContext";
 import { useFormData, useSent } from "@/hooks/useTransactions";
 import { createTransaction } from "@/lib/api";
 
 interface Attachment {
   id: string;
+
   file: File;
+
   description: string;
+
   date: string;
 }
 
@@ -35,22 +48,32 @@ const CreateTransaction = () => {
   const navigate = useNavigate();
 
   const { user, isLoading: authLoading } = useAuth();
+
   const { data: formData, isLoading: formLoading } = useFormData();
+    
   const { data: historyTransactions, isLoading: historyLoading } = useSent();
   
   const [activeTab, setActiveTab] = useState("main");
+
   const [subject, setSubject] = useState("");
+
   const [content, setContent] = useState("");
+
   const [transactionNature, setTransactionNature] = useState("new");
+
   const [selectedTypeId, setSelectedTypeId] = useState<number | null>(null);
+
   const [attachments, setAttachments] = useState<Attachment[]>([]);
+
   const [attachmentDescription, setAttachmentDescription] = useState("");
+
   const [selectedReceivers, setSelectedReceivers] = useState<number[]>([]);
+
   const [isSubmitting, setIsSubmitting] = useState(false);
+
   const [parentTransactionId, setParentTransactionId] = useState<number | null>(null);
 
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  // State for expanding/collapsing departments
 
   const [expandedDepts, setExpandedDepts] = useState<number[]>([]);
 
@@ -60,6 +83,7 @@ const CreateTransaction = () => {
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
+
     if (file) {
       setSelectedFile(file);
     }
@@ -68,31 +92,42 @@ const CreateTransaction = () => {
   const handleAddAttachment = () => {
     if (!selectedFile) {
       toast.error("يرجى اختيار ملف");
+
       return;
     }
+
     if (!attachmentDescription.trim()) {
       toast.error("يرجى إدخال وصف الملف");
+
       return;
     }
 
     const newAttachment: Attachment = {
       id: Date.now().toString(),
+
       file: selectedFile,
+
       description: attachmentDescription,
-      date: new Date().toLocaleDateString('ar-EG'),
+
+      date: new Date().toLocaleDateString("ar-EG"),
     };
 
     setAttachments([...attachments, newAttachment]);
+
     setAttachmentDescription("");
+
     setSelectedFile(null);
+
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
+
     toast.success("تم إضافة المرفق بنجاح");
   };
 
   const handleRemoveAttachment = (id: string) => {
-    setAttachments(attachments.filter(a => a.id !== id));
+    setAttachments(attachments.filter((a) => a.id !== id));
+
     toast.success("تم حذف المرفق");
   };
 
@@ -111,6 +146,44 @@ const CreateTransaction = () => {
     );
   };
 
+  // Function to toggle department expansion
+
+  const toggleDept = (deptId: number) => {
+    setExpandedDepts((prev) =>
+      prev.includes(deptId)
+        ? prev.filter((id) => id !== deptId)
+        : [...prev, deptId]
+    );
+  };
+
+  // Function to Select All / Deselect All within a department
+
+  const toggleDepartmentSelection = (dept: any, e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent accordion from toggling
+
+    const deptEmployeeIds = dept.employees.map((emp: any) => emp.user_id);
+
+    const isAllSelected = deptEmployeeIds.every((id: number) =>
+      selectedReceivers.includes(id)
+    );
+
+    if (isAllSelected) {
+      // Deselect all in this department
+
+      setSelectedReceivers((prev) =>
+        prev.filter((id) => !deptEmployeeIds.includes(id))
+      );
+    } else {
+      // Select all in this department
+
+      const newIds = deptEmployeeIds.filter(
+        (id: number) => !selectedReceivers.includes(id)
+      );
+
+      setSelectedReceivers((prev) => [...prev, ...newIds]);
+    }
+  };
+
   const handleSaveDraft = async () => {
     toast.success("تم حفظ المعاملة كمسودة");
 
@@ -120,14 +193,19 @@ const CreateTransaction = () => {
   const handleSubmit = async () => {
     if (selectedReceivers.length === 0) {
       toast.error("يرجى اختيار جهة واحدة على الأقل");
+
       return;
     }
+
     if (!subject.trim()) {
       toast.error("يرجى إدخال موضوع المعاملة");
+
       return;
     }
+
     if (!selectedTypeId) {
       toast.error("يرجى اختيار نوع المعاملة");
+
       return;
     }
 
@@ -135,8 +213,11 @@ const CreateTransaction = () => {
 
     try {
       const formDataToSend = new FormData();
+
       formDataToSend.append("subject", subject);
+
       formDataToSend.append("content", content);
+
       formDataToSend.append("type_id", selectedTypeId.toString());
 
       formDataToSend.append("is_draft", "false");
@@ -146,10 +227,16 @@ const CreateTransaction = () => {
         formDataToSend.append("parent_transaction_id", parentTransactionId.toString());
       }
 
+      if (parentTransactionId) {
+        formDataToSend.append(
+          "parent_transaction_id",
+          parentTransactionId.toString()
+        );
+      }
       // formDataToSend.append("receivers", selectedReceivers.join(","));
-
+      
       selectedReceivers.forEach((receiverId) => {
-        formDataToSend.append("receivers[]", receiverId.toString());
+        formDataToSend.append("receivers", receiverId);
       });
 
       attachments.forEach((attachment) => {
@@ -159,9 +246,12 @@ const CreateTransaction = () => {
       const result = await createTransaction(formDataToSend);
 
       toast.success(result.message || "تم إرسال المعاملة بنجاح");
+
       navigate("/transactions/outgoing");
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "فشل في إرسال المعاملة");
+      toast.error(
+        error instanceof Error ? error.message : "فشل في إرسال المعاملة"
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -177,6 +267,7 @@ const CreateTransaction = () => {
 
   if (!user) {
     navigate("/login");
+
     return null;
   }
 
@@ -197,13 +288,16 @@ const CreateTransaction = () => {
           <Tabs value={activeTab} onValueChange={setActiveTab} dir="rtl">
             <TabsList className="grid w-full grid-cols-3 mb-8">
               <TabsTrigger value="main">الرئيسية</TabsTrigger>
+
               <TabsTrigger value="attachments">إدراج المرفقات</TabsTrigger>
+
               <TabsTrigger value="send">الإرسال</TabsTrigger>
             </TabsList>
 
             <TabsContent value="main" className="space-y-6">
               <div className="space-y-2">
                 <Label className="text-right block">الموضوع</Label>
+
                 <Input
                   placeholder="ادخل موضوع المعاملة"
                   value={subject}
@@ -215,6 +309,7 @@ const CreateTransaction = () => {
 
               <div className="space-y-2">
                 <Label className="text-right block">مضمون الخطاب</Label>
+
                 <Textarea
                   placeholder="ادخل محتوى الخطاب"
                   value={content}
@@ -226,13 +321,21 @@ const CreateTransaction = () => {
 
               <div className="space-y-4">
                 <Label className="text-right block">طبيعة المعاملة</Label>
-                <RadioGroup value={transactionNature} onValueChange={setTransactionNature} className="flex gap-8 justify-end">
+
+                <RadioGroup
+                  value={transactionNature}
+                  onValueChange={setTransactionNature}
+                  className="flex gap-8 justify-end"
+                >
                   <div className="flex items-center gap-2">
                     <Label htmlFor="reply">رد أو إستدراك لمعاملة سابقة</Label>
+
                     <RadioGroupItem value="reply" id="reply" />
                   </div>
+
                   <div className="flex items-center gap-2">
                     <Label htmlFor="new">معاملة جديدة</Label>
+
                     <RadioGroupItem value="new" id="new" />
                   </div>
                 </RadioGroup>
@@ -264,17 +367,24 @@ const CreateTransaction = () => {
                             <span className="badge bg-muted text-muted-foreground text-xs px-2 py-1 rounded-full border border-border">
                               {transaction.code}
                             </span>
+
                             <div className="flex items-center gap-3">
                               <div className="text-right">
                                 <div className="flex items-center gap-2 justify-end">
-                                  <span className="font-medium">{transaction.subject}</span>
+                                  <span className="font-medium">
+                                    {transaction.subject}
+                                  </span>
+
                                   <FileText className="w-4 h-4 text-primary" />
                                 </div>
+
                                 <div className="flex items-center gap-2 justify-end text-sm text-muted-foreground mt-1">
                                   <span>{transaction.date?.split("T")[0]}</span>
+
                                   <Calendar className="w-3 h-3" />
                                 </div>
                               </div>
+
                               <input
                                 type="radio"
                                 name="parent-transaction"
@@ -308,7 +418,11 @@ const CreateTransaction = () => {
                   {types.map((type) => (
                     <div key={type.id} className="flex items-center gap-2">
                       <Label htmlFor={`type-${type.id}`}>{type.name}</Label>
-                      <RadioGroupItem value={type.id.toString()} id={`type-${type.id}`} />
+
+                      <RadioGroupItem
+                        value={type.id.toString()}
+                        id={`type-${type.id}`}
+                      />
                     </div>
                   ))}
                 </RadioGroup>
@@ -330,8 +444,10 @@ const CreateTransaction = () => {
                     <Plus className="w-4 h-4" />
                     إضافة
                   </Button>
+
                   <div className="flex-1">
                     <Label className="text-right block mb-2">وصف الملف</Label>
+
                     <Input
                       placeholder="مثال: صورة البطاقة الشخصية"
                       value={attachmentDescription}
@@ -340,8 +456,10 @@ const CreateTransaction = () => {
                       dir="rtl"
                     />
                   </div>
+
                   <div className="w-48">
                     <Label className="text-right block mb-2">اختر الملف</Label>
+
                     <input
                       type="file"
                       ref={fileInputRef}
@@ -367,16 +485,24 @@ const CreateTransaction = () => {
                   <TableHeader>
                     <TableRow>
                       <TableHead className="text-right">حذف الملف</TableHead>
+
                       <TableHead className="text-right">اسم الملف</TableHead>
+
                       <TableHead className="text-right">وصف الملف</TableHead>
+
                       <TableHead className="text-right">التاريخ</TableHead>
+
                       <TableHead className="text-right">الرقم</TableHead>
                     </TableRow>
                   </TableHeader>
+
                   <TableBody>
                     {attachments.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                        <TableCell
+                          colSpan={5}
+                          className="text-center text-muted-foreground py-8"
+                        >
                           لا توجد مرفقات حتى الآن
                         </TableCell>
                       </TableRow>
@@ -387,16 +513,30 @@ const CreateTransaction = () => {
                             <Button
                               variant="ghost"
                               size="icon"
-                              onClick={() => handleRemoveAttachment(attachment.id)}
+                              onClick={() =>
+                                handleRemoveAttachment(attachment.id)
+                              }
                               className="text-destructive hover:text-destructive"
                             >
                               <Trash2 className="w-4 h-4" />
                             </Button>
                           </TableCell>
-                          <TableCell className="text-right">{attachment.file.name}</TableCell>
-                          <TableCell className="text-right">{attachment.description}</TableCell>
-                          <TableCell className="text-right">{attachment.date}</TableCell>
-                          <TableCell className="text-right">{index + 1}</TableCell>
+
+                          <TableCell className="text-right">
+                            {attachment.file.name}
+                          </TableCell>
+
+                          <TableCell className="text-right">
+                            {attachment.description}
+                          </TableCell>
+
+                          <TableCell className="text-right">
+                            {attachment.date}
+                          </TableCell>
+
+                          <TableCell className="text-right">
+                            {index + 1}
+                          </TableCell>
                         </TableRow>
                       ))
                     )}
@@ -408,6 +548,7 @@ const CreateTransaction = () => {
                 <Button onClick={() => setActiveTab("send")}>
                   التالي: الإرسال
                 </Button>
+
                 <Button variant="outline" onClick={() => setActiveTab("main")}>
                   السابق
                 </Button>
@@ -494,17 +635,64 @@ const CreateTransaction = () => {
                           )}
                         </div>
                       </div>
-                      <Checkbox
-                        checked={selectedReceivers.includes(receiver.user_id)}
-                        onCheckedChange={() => toggleReceiver(receiver.user_id)}
-                      />
+
+                      {/* Employees List */}
+
+                      {isExpanded && dept.employees && (
+                        <div className="p-4 border-t border-border bg-muted/10 grid grid-cols-1 md:grid-cols-2 gap-3">
+                          {dept.employees.map((employee: any) => (
+                            <div
+                              key={employee.user_id}
+                              className={`flex items-center justify-start gap-3 p-3 rounded-lg border transition-all cursor-pointer ${
+                                selectedReceivers.includes(employee.user_id)
+                                  ? "border-primary bg-primary/5"
+                                  : "border-border bg-background hover:border-primary/50"
+                              }`}
+                              onClick={(e) => {
+                                e.stopPropagation();
+
+                                toggleReceiver(employee.user_id);
+                              }}
+                            >
+                              <div className="text-right">
+                                <p className="font-medium text-sm">
+                                  {employee.full_name}
+                                </p>
+
+                                <p className="text-xs text-muted-foreground">
+                                  {employee.department_name}
+                                </p>
+                              </div>
+
+                              <Checkbox
+                                checked={selectedReceivers.includes(
+                                  employee.user_id
+                                )}
+                                onCheckedChange={() =>
+                                  toggleReceiver(employee.user_id)
+                                }
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
+                  );
+                })}
+
+                {receivers.length === 0 && (
+                  <div className="text-center py-8 text-muted-foreground border rounded-xl">
+                    لا توجد جهات متاحة
                   </div>
-                ))}
+                )}
               </div>
 
               <div className="flex gap-4 justify-start pt-8">
-                <Button onClick={handleSubmit} disabled={isSubmitting} className="gap-2">
+                <Button
+                  onClick={handleSubmit}
+                  disabled={isSubmitting}
+                  className="gap-2"
+                >
                   {isSubmitting ? (
                     <Loader2 className="w-4 h-4 animate-spin" />
                   ) : (
@@ -512,7 +700,12 @@ const CreateTransaction = () => {
                   )}
                   إرسال المعاملة
                 </Button>
-                <Button variant="outline" onClick={handleSaveDraft} className="gap-2">
+
+                <Button
+                  variant="outline"
+                  onClick={handleSaveDraft}
+                  className="gap-2"
+                >
                   <Save className="w-4 h-4" />
                   حفظ كمسودة
                 </Button>
