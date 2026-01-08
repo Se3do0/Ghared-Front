@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Send, Save, Plus, Trash2, Upload, Loader2, FileText, Calendar, Search, X, Filter } from "lucide-react";
+import { Send, Save, Plus, Trash2, Upload, Loader2, FileText, Calendar, Search, X, Filter, ChevronDown, ChevronUp } from "lucide-react";
 import Header from "@/components/layout/Header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -48,6 +48,7 @@ const CreateTransaction = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [parentTransactionId, setParentTransactionId] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [expandedDepartments, setExpandedDepartments] = useState<Set<string>>(new Set());
   const [departmentFilter, setDepartmentFilter] = useState<string>("all");
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -82,6 +83,59 @@ const CreateTransaction = () => {
       return matchesSearch && matchesDept;
     });
   }, [receivers, searchQuery, departmentFilter]);
+
+  // --- تجميع الموظفين حسب القسم ---
+  const groupedByDepartment = useMemo(() => {
+    const groups: Record<string, { departmentName: string; employees: typeof filteredEmployees }> = {};
+    filteredEmployees.forEach((emp) => {
+      const deptId = emp.department_id.toString();
+      if (!groups[deptId]) {
+        groups[deptId] = { departmentName: emp.department_name, employees: [] };
+      }
+      groups[deptId].employees.push(emp);
+    });
+    return groups;
+  }, [filteredEmployees]);
+
+  // --- تحديد/إلغاء تحديد كل موظفي قسم معين ---
+  const toggleDepartment = (deptId: string) => {
+    const deptEmployees = groupedByDepartment[deptId]?.employees || [];
+    const deptUserIds = deptEmployees.map(emp => emp.user_id);
+    const allSelected = deptUserIds.every(id => selectedReceivers.includes(id));
+    
+    if (allSelected) {
+      setSelectedReceivers(prev => prev.filter(id => !deptUserIds.includes(id)));
+    } else {
+      setSelectedReceivers(prev => [...new Set([...prev, ...deptUserIds])]);
+    }
+  };
+
+  // --- تحديد/إلغاء تحديد الكل ---
+  const toggleSelectAll = () => {
+    const allUserIds = filteredEmployees.map(emp => emp.user_id);
+    const allSelected = allUserIds.every(id => selectedReceivers.includes(id));
+    
+    if (allSelected) {
+      setSelectedReceivers(prev => prev.filter(id => !allUserIds.includes(id)));
+    } else {
+      setSelectedReceivers(prev => [...new Set([...prev, ...allUserIds])]);
+    }
+  };
+
+  const isAllSelected = filteredEmployees.length > 0 && filteredEmployees.every(emp => selectedReceivers.includes(emp.user_id));
+
+  // --- توسيع/طي القسم ---
+  const toggleDepartmentExpand = (deptId: string) => {
+    setExpandedDepartments(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(deptId)) {
+        newSet.delete(deptId);
+      } else {
+        newSet.add(deptId);
+      }
+      return newSet;
+    });
+  };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -210,8 +264,12 @@ const CreateTransaction = () => {
         formDataToSend.append("parent_transaction_id", parentTransactionId.toString());
       }
 
-      formDataToSend.append("receivers", selectedReceivers.join(","));
+      // formDataToSend.append("receivers", selectedReceivers.join(","));
 
+      selectedReceivers.forEach((receiverId) => {
+        formDataToSend.append("receivers[]", receiverId.toString());
+      });
+      
       attachments.forEach((attachment) => {
         formDataToSend.append("attachments", attachment.file);
       });
@@ -514,31 +572,107 @@ const CreateTransaction = () => {
                 )}
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {filteredEmployees.map((receiver) => (
-                  <div
-                    key={receiver.user_id}
-                    className={`border rounded-xl p-4 text-right cursor-pointer transition-all duration-200 ${selectedReceivers.includes(receiver.user_id)
-                      ? 'border-primary bg-primary/5 shadow-md'
-                      : 'border-border hover:border-primary/50'
-                      }`}
-                    onClick={() => toggleReceiver(receiver.user_id)}
+              {/* زر تحديد الكل */}
+              {filteredEmployees.length > 0 && (
+                <div className="flex justify-end">
+                  <Button
+                    variant={isAllSelected ? "default" : "outline"}
+                    onClick={toggleSelectAll}
+                    className="gap-2"
                   >
-                    <div className="flex items-start justify-end gap-3">
-                      <div>
-                        <p className="font-medium">{receiver.full_name}</p>
-                        <p className="text-sm text-primary">{receiver.department_name}</p>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          #{receiver.user_id}
-                        </p>
+                    <Checkbox checked={isAllSelected} />
+                    {isAllSelected ? "إلغاء تحديد الكل" : "تحديد الكل"}
+                  </Button>
+                </div>
+              )}
+
+              {/* عرض الموظفين مجمعين حسب القسم */}
+              <div className="space-y-6">
+                {Object.entries(groupedByDepartment).map(([deptId, { departmentName, employees }]) => {
+                  const deptUserIds = employees.map(emp => emp.user_id);
+                  const allDeptSelected = deptUserIds.every(id => selectedReceivers.includes(id));
+                  const someDeptSelected = deptUserIds.some(id => selectedReceivers.includes(id)) && !allDeptSelected;
+
+                  const isExpanded = expandedDepartments.has(deptId);
+
+                  return (
+                    <div key={deptId} className="border border-border rounded-xl overflow-hidden">
+                      {/* رأس القسم */}
+                      <div
+                        className={`flex items-center justify-between p-4 cursor-pointer transition-colors ${
+                          allDeptSelected ? 'bg-primary/10' : someDeptSelected ? 'bg-primary/5' : 'bg-muted/30'
+                        }`}
+                        onClick={() => toggleDepartmentExpand(deptId)}
+                      >
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleDepartmentExpand(deptId);
+                            }}
+                          >
+                            {isExpanded ? (
+                              <ChevronUp className="h-4 w-4" />
+                            ) : (
+                              <ChevronDown className="h-4 w-4" />
+                            )}
+                          </Button>
+                          <Button
+                            variant={allDeptSelected ? "default" : "outline"}
+                            size="sm"
+                            className="gap-2"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleDepartment(deptId);
+                            }}
+                          >
+                            <Checkbox checked={allDeptSelected} />
+                            تحديد الكل
+                          </Button>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <h4 className="font-bold text-lg">{departmentName}</h4>
+                          <span className="text-sm text-muted-foreground">
+                            ({employees.length} موظف)
+                          </span>
+                        </div>
                       </div>
-                      <Checkbox
-                        checked={selectedReceivers.includes(receiver.user_id)}
-                        onCheckedChange={() => toggleReceiver(receiver.user_id)}
-                      />
+
+                      {/* قائمة الموظفين */}
+                      {isExpanded && (
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4">
+                          {employees.map((receiver) => (
+                            <div
+                              key={receiver.user_id}
+                              className={`border rounded-xl p-4 text-right cursor-pointer transition-all duration-200 ${
+                                selectedReceivers.includes(receiver.user_id)
+                                  ? 'border-primary bg-primary/5 shadow-md'
+                                  : 'border-border hover:border-primary/50'
+                              }`}
+                              onClick={() => toggleReceiver(receiver.user_id)}
+                            >
+                              <div className="flex items-start justify-end gap-3">
+                                <div>
+                                  <p className="font-medium">{receiver.full_name}</p>
+                                  <p className="text-xs text-muted-foreground mt-1">
+                                    #{receiver.user_id}
+                                  </p>
+                                </div>
+                                <Checkbox
+                                  checked={selectedReceivers.includes(receiver.user_id)}
+                                  onCheckedChange={() => toggleReceiver(receiver.user_id)}
+                                />
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
 
               {filteredEmployees.length === 0 && (

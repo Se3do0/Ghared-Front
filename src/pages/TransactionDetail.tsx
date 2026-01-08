@@ -1,5 +1,5 @@
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowRight, Reply, Loader2, FileText, Download, Eye, Check, X } from "lucide-react";
+import { ArrowRight, Reply, Loader2, FileText, Download, Eye, Check, X, GitBranch, ArrowLeftRight, CircleCheck, CircleX } from "lucide-react";
 import Header from "@/components/layout/Header";
 import TransactionsSidebar from "@/components/layout/TransactionsSidebar";
 import { Button } from "@/components/ui/button";
@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { useTransactionDetails, useTransactionAttachment } from "@/hooks/useTransactions";
 import { useAuth } from "@/contexts/AuthContext";
 import { useEffect, useState } from "react";
-import { performTransactionAction } from "@/lib/api";
+import { performTransactionAction, TrackingItem } from "@/lib/api";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 const { openAttachment } = useTransactionAttachment();
 
@@ -28,6 +29,7 @@ const TransactionDetail = () => {
   const { data, isLoading, error, refetch } = useTransactionDetails(id || "");
   
   const [actionDialogOpen, setActionDialogOpen] = useState(false);
+  const [trackingDialogOpen, setTrackingDialogOpen] = useState(false);
   const [currentAction, setCurrentAction] = useState<"accept" | "reject" | null>(null);
   const [annotation, setAnnotation] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -84,7 +86,7 @@ const TransactionDetail = () => {
 
   const transaction = data.details;
   const attachments = data.attachments || [];
-  const history = data.history || [];
+  const tracking = data.tracking || [];
 
   return (
     <div className="min-h-screen bg-background">
@@ -211,24 +213,17 @@ const TransactionDetail = () => {
                 </div>
               )}
 
-              {/* History */}
-              {history.length > 0 && (
+              {/* Tracking Button */}
+              {tracking.length > 0 && (
                 <div className="border-t border-border pt-6">
-                  <h3 className="font-bold text-right mb-4">سجل المعاملة</h3>
-                  <div className="space-y-3">
-                    {history.map((item, index) => (
-                      <div
-                        key={item.path_id || index}
-                        className="flex items-center justify-end gap-4 p-3 bg-muted/20 rounded-lg text-sm"
-                      >
-                        <span className="text-muted-foreground">
-                          {new Date(item.created_at).toLocaleDateString("ar-EG")}
-                        </span>
-                        <span>{item.path_notes}</span>
-                        <span className="text-primary">{item.from_department} ← {item.to_department}</span>
-                      </div>
-                    ))}
-                  </div>
+                  <Button
+                    variant="outline"
+                    className="w-full gap-2 justify-center"
+                    onClick={() => setTrackingDialogOpen(true)}
+                  >
+                    <GitBranch className="w-4 h-4" />
+                    تتبع المعاملة ({tracking.length} إجراء)
+                  </Button>
                 </div>
               )}
 
@@ -241,22 +236,26 @@ const TransactionDetail = () => {
                   <Reply className="w-4 h-4" />
                   رد على المعاملة
                 </Button>
-                <Button
-                  variant="default"
-                  className="gap-2 bg-green-600 hover:bg-green-700"
-                  onClick={() => handleActionClick("accept")}
-                >
-                  <Check className="w-4 h-4" />
-                  موافقة
-                </Button>
-                <Button
-                  variant="destructive"
-                  className="gap-2"
-                  onClick={() => handleActionClick("reject")}
-                >
-                  <X className="w-4 h-4" />
-                  رفض
-                </Button>
+                {type === "incoming" && (
+                  <>
+                    <Button
+                      variant="default"
+                      className="gap-2 bg-green-600 hover:bg-green-700"
+                      onClick={() => handleActionClick("accept")}
+                    >
+                      <Check className="w-4 h-4" />
+                      موافقة
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      className="gap-2"
+                      onClick={() => handleActionClick("reject")}
+                    >
+                      <X className="w-4 h-4" />
+                      رفض
+                    </Button>
+                  </>
+                )}
               </div>
             </div>
           </div>
@@ -310,6 +309,90 @@ const TransactionDetail = () => {
               ) : (
                 "تأكيد الرفض"
               )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Tracking Dialog */}
+      <Dialog open={trackingDialogOpen} onOpenChange={setTrackingDialogOpen}>
+        <DialogContent className="sm:max-w-lg" dir="rtl">
+          <DialogHeader>
+            <DialogTitle className="text-right flex items-center gap-2 justify-end">
+              <span>تتبع المعاملة</span>
+              <GitBranch className="w-5 h-5" />
+            </DialogTitle>
+          </DialogHeader>
+          <ScrollArea className="max-h-[60vh]">
+            <div className="space-y-4 py-4 pr-4">
+              {tracking.map((item: TrackingItem, index: number) => (
+                <div
+                  key={index}
+                  className={`relative flex gap-4 p-4 rounded-lg border ${
+                    item.type === "action"
+                      ? item.title === "رفض"
+                        ? "border-destructive/30 bg-destructive/5"
+                        : "border-green-500/30 bg-green-500/5"
+                      : "border-border bg-muted/30"
+                  }`}
+                >
+                  {/* Icon */}
+                  <div
+                    className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center ${
+                      item.type === "action"
+                        ? item.title === "رفض"
+                          ? "bg-destructive/10 text-destructive"
+                          : "bg-green-500/10 text-green-600"
+                        : "bg-primary/10 text-primary"
+                    }`}
+                  >
+                    {item.type === "movement" ? (
+                      <ArrowLeftRight className="w-5 h-5" />
+                    ) : item.title === "رفض" ? (
+                      <CircleX className="w-5 h-5" />
+                    ) : (
+                      <CircleCheck className="w-5 h-5" />
+                    )}
+                  </div>
+
+                  {/* Content */}
+                  <div className="flex-1 text-right">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs text-muted-foreground">
+                        {new Date(item.date).toLocaleDateString("ar-EG", {
+                          year: "numeric",
+                          month: "short",
+                          day: "numeric",
+                        })}
+                      </span>
+                      <Badge
+                        variant={item.type === "action" ? "default" : "secondary"}
+                        className={
+                          item.type === "action"
+                            ? item.title === "رفض"
+                              ? "bg-destructive"
+                              : "bg-green-600"
+                            : ""
+                        }
+                      >
+                        {item.title}
+                      </Badge>
+                    </div>
+                    <p className="text-sm font-medium">{item.performer}</p>
+                    <p className="text-xs text-muted-foreground">{item.department}</p>
+                    {item.description && (
+                      <p className="text-sm text-foreground mt-2 p-2 bg-background rounded border border-border">
+                        {item.description}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </ScrollArea>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setTrackingDialogOpen(false)}>
+              إغلاق
             </Button>
           </DialogFooter>
         </DialogContent>

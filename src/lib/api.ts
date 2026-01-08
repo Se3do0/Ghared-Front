@@ -22,6 +22,7 @@ export interface InboxTransaction {
   transaction_id: number;
   code: string;
   subject: string;
+  content?: string;
   date: string;
   sender_name: string;
 }
@@ -34,6 +35,17 @@ export interface TransactionDetails {
   date: string;
   sender_name: string;
   current_status: string;
+  type_id?: number;
+  type_name?: string;
+}
+
+export interface TrackingItem {
+  type: "movement" | "action";
+  date: string;
+  title: string;
+  description: string;
+  performer: string;
+  department: string;
 }
 
 export interface TransactionFull {
@@ -44,13 +56,7 @@ export interface TransactionFull {
     description: string;
     attachment_date: string;
   }>;
-  history: Array<{
-    path_id: number;
-    path_notes: string;
-    from_department: string;
-    to_department: string;
-    created_at: string;
-  }>;
+  tracking: TrackingItem[];
 }
 
 export interface Employee {

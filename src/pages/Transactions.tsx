@@ -87,9 +87,10 @@ const Transactions = () => {
           if (newMap[idStr]) return;
           try {
             const details = await fetchTransactionDetails(idStr);
-            const history = details?.history || [];
-            const toDeps = history
-              .map((h: any) => h.to_department)
+            const tracking = details?.tracking || [];
+            const toDeps = tracking
+              .filter((t: any) => t.type === "movement")
+              .map((t: any) => t.department)
               .filter(Boolean) as string[];
             // dedupe
             newMap[idStr] = Array.from(new Set(toDeps));
